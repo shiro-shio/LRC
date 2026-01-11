@@ -20,7 +20,7 @@ body {
 
 /* 控制面板佈局 */
 .control-panel {
-    background: #ffffff66;
+    background: #ffffff26;
     padding: 8px;
     border-radius: 8px;
     margin-bottom: 10px;
@@ -61,8 +61,8 @@ input[type="range"] {
     top: 35%;
     transform: translate(0, -50%);
     width: 100%;
-    height: 300px;
-    background: #f3cfffbd;
+    height: 400px;
+    /*background: #f3cfffbd;*/
     overflow: hidden;
     position: relative;
     border-radius: 10px;
@@ -81,14 +81,14 @@ input[type="range"] {
 .lrc-line {
     padding: 15px 10px;
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 2.5rem;
     color: #666;
     transition: all 0.3s;
 }
 
 .lrc-line.active {
     color: #fff;
-    font-size: 1.6rem;
+    font-size: 3.5rem;
     font-weight: bold;
     transform: scale(1.05);
     text-shadow: 1px 0px 1px #5600ff94, -1px 0px 1px #5600ff94, 0px 1px 1px #5600ff94, 0px -1px 1px #5600ff94;
