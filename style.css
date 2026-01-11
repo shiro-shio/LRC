@@ -20,7 +20,7 @@ body {
 
 /* 控制面板佈局 */
 .control-panel {
-    background: #ffffff26;
+    background: #455cff45;
     padding: 8px;
     border-radius: 8px;
     margin-bottom: 10px;
@@ -46,7 +46,7 @@ button,
 .upload-btn {
     padding: 8px 15px;
     background: #ffffff50;
-    color: white;
+    color: #000000;
     border: none;
     border-radius: 4px;
     cursor: pointer;
