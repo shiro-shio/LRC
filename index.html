@@ -12,9 +12,9 @@
     <div class="control-panel">
         <div class="input-row">
             <input type="text" id="lrc-url" placeholder="輸入 LRC URL" >
-            <button onclick="fetchLrc()">載入 URL</button>
+            <button onclick="fetchLrc()">歌詞URL</button>
             <label class="upload-btn">
-                本地上傳 <input type="file" id="lrc-file" accept=".lrc" hidden onchange="loadLocalLrc(this)">
+                歌詞上傳 <input type="file" id="lrc-file" accept=".lrc" hidden onchange="loadLocalLrc(this)">
             </label>
         </div>
         
@@ -25,7 +25,7 @@
         </div>
 
         <div class="offset-row">
-            <label>時間偏移植 (秒): </label>
+            <label>時間偏移(秒): </label>
             <input type="number" id="offset" value="0" step="0.1">
         </div>
     </div>
@@ -38,4 +38,5 @@
 </div>
 </body>
 <script src="scripts.js?ver=2601111509"></script>
+
 </html>
