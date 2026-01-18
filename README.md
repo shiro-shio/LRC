@@ -1,1 +1,1 @@
-# LRC
+# Lyrics
