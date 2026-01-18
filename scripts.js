@@ -34,7 +34,7 @@ function renderLyrics() {
 function togglePlay() {
     isPlaying = !isPlaying;
     const btn = document.getElementById('play-btn');
-    btn.textContent = isPlaying ? "暫停" : "播放";
+    btn.textContent = isPlaying ? "暫停 ⏸︎" : "播放 ▶︎";
     
     if (isPlaying) {
         timer = setInterval(() => {
