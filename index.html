@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>動態歌詞</title>
 <link rel="stylesheet" href="style.css?ver=2601111509">
+<script src="https://unpkg.com/vanilla-picker@2"></script>
 </head>
 
 <body>
@@ -35,16 +36,19 @@
                 <span id="size-val" style="width: 54px;">2.2</span>
             </div>
         </div>
-        <div class="controls" style="display: flex;align-items: center;gap: 10px;">
+        <div class="controls" style="display: flex;align-items: center;gap: 10px;padding-left: 6px;">
 
             <span>文字副色:</span>
-            <input type="color" id="fontColor" value="#9c9c9c">
+            <!--input type="color" id="fontColor" value="#9c9c9c"-->
+            <div id="fontColor" class="color-picker-btn" style="background-color: #9c9c9c;"></div>
 
             <span>文字主色:</span>
-            <input type="color" id="activeColor" value="#ffffff">
+            <!--input type="color" id="activeColor" value="#ffffff"-->
+            <div id="activeColor" class="color-picker-btn" style="background-color: #ffffff;"></div>
 
             <span>陰影顏色:</span>
-            <input type="color" id="shadowColor" value="#5600ff">
+            <!--input type="color" id="shadowColor" value="#5600ff"-->
+            <div id="shadowColor" class="color-picker-btn" style="background-color: #5600ff;"></div>
         </div>
     </div>
 

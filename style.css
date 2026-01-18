@@ -11,6 +11,11 @@ body {
     background-color: #fff;
     margin: 0;
 }
+span,
+button {
+    text-shadow: 1px 0px 1px #fff, -1px 0px 1px #fff, 0px 1px 1px #fff, 0px -1px 1px #fff;
+}
+
 
 .lyrics-app {
     position: absolute;
@@ -58,10 +63,14 @@ button,
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+    text-shadow: 1px 0px 1px #fff, -1px 0px 1px #fff, 0px 1px 1px #fff, 0px -1px 1px #fff;
 }
 
 input[type="range"] {
     flex: 1;
+}
+input[type="number"]{
+    text-shadow: 1px 0px 1px #fff, -1px 0px 1px #fff, 0px 1px 1px #fff, 0px -1px 1px #fff;
 }
 
 .lrc-window {
@@ -108,4 +117,19 @@ input[type="color"]{
     width: 22px;
     height: 25px;
     background-color: transparent;
+}
+
+.color-picker-btn {
+    display: inline-block;
+    width: 30px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin: 0 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.color-picker-btn:hover {
+    border-color: #bbb;
 }

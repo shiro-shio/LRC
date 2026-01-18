@@ -113,9 +113,6 @@ function loadLocalLrc(input) {
 }
 
 const fontSizeInput = document.getElementById('fontSize');
-const fontColorInput = document.getElementById('fontColor');
-const activeColorInput = document.getElementById('activeColor');
-const shadowColorInput = document.getElementById('shadowColor');
 const sizeValDisplay = document.getElementById('size-val');
 
 function updateRootVariable(property, value) {
@@ -128,14 +125,30 @@ fontSizeInput.addEventListener('input', (e) => {
     sizeValDisplay.textContent = e.target.value;
 });
 
-fontColorInput.addEventListener('input', (e) => {
-    updateRootVariable('--lyrics-font-color', e.target.value);
-});
 
-activeColorInput.addEventListener('input', (e) => {
-    updateRootVariable('--lyrics-font-color-active', e.target.value);
-});
-
-shadowColorInput.addEventListener('input', (e) => {
-    updateRootVariable('--lyrics-font-shadow-color', e.target.value + '94');
-});
+function setupColorPicker(id, cssVar, defaultValue, hasAlphaSuffix = false) {
+    const el = document.getElementById(id);
+    
+    const picker = new Picker({
+        parent: el,
+        popup: 'bottom',
+        color: defaultValue,
+        alpha: false,
+        editor: true,
+        onDone: function(color) {
+            el.style.backgroundColor = color.hex.slice(0, 7);
+        },
+        onChange: function(color) {
+            const hexColor = color.hex.slice(0, 7);
+            el.style.backgroundColor = hexColor;
+            if (hasAlphaSuffix) {
+                updateRootVariable(cssVar, hexColor + '94');
+            } else {
+                updateRootVariable(cssVar, hexColor);
+            }
+        }
+    });
+}
+setupColorPicker('fontColor', '--lyrics-font-color', '#9c9c9c');
+setupColorPicker('activeColor', '--lyrics-font-color-active', '#ffffff');
+setupColorPicker('shadowColor', '--lyrics-font-shadow-color', '#5600ff', true);
