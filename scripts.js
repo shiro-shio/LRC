@@ -68,7 +68,17 @@ function updateSync() {
 
     // 套用偏移植計算
     const offset = parseFloat(document.getElementById('offset').value) || 0;
-    const adjustedTime = currentTime + offset;
+
+    const offsetInput = document.getElementById('offset');
+    const offsetRInput = document.getElementById('offset-r');
+    offsetInput.addEventListener('input', () => {
+        offsetRInput.value = offsetInput.value;
+    });
+    offsetRInput.addEventListener('input', () => {
+        offsetInput.value = offsetRInput.value;
+    });
+
+    const adjustedTime = currentTime + parseFloat(offsetInput.value) || 0;
 
     // 找出目前應該高亮的歌詞索引
     const index = lyrics.findIndex((item, i) => {
@@ -113,3 +123,34 @@ function loadLocalLrc(input) {
     };
     reader.readAsText(file);
 }
+// 取得控制元件
+const fontSizeInput = document.getElementById('fontSize');
+const fontColorInput = document.getElementById('fontColor');
+const activeColorInput = document.getElementById('activeColor');
+const shadowColorInput = document.getElementById('shadowColor');
+const sizeValDisplay = document.getElementById('size-val');
+
+// 更新 CSS 變數的函式
+function updateRootVariable(property, value) {
+    document.documentElement.style.setProperty(property, value);
+}
+
+// 監聽事件
+fontSizeInput.addEventListener('input', (e) => {
+    const val = e.target.value + 'rem';
+    updateRootVariable('--lyrics-font-size', val);
+    sizeValDisplay.textContent = e.target.value;
+});
+
+fontColorInput.addEventListener('input', (e) => {
+    updateRootVariable('--lyrics-font-color', e.target.value);
+});
+
+activeColorInput.addEventListener('input', (e) => {
+    updateRootVariable('--lyrics-font-color-active', e.target.value);
+});
+
+shadowColorInput.addEventListener('input', (e) => {
+    // 為了保持陰影的透明度效果，我們可以在顏色後方加上透明度 HEX
+    updateRootVariable('--lyrics-font-shadow-color', e.target.value + '94');
+});

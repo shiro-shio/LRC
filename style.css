@@ -1,3 +1,10 @@
+:root{
+    --lyrics-font-size: 2.2rem;
+    --lyrics-font-color:#9c9c9c;
+    --lyrics-font-color-active:#fff;
+    --lyrics-font-shadow-color:#5600ff94;
+}
+
 body {
     width: 100%;
     height: 100vh;
@@ -18,7 +25,6 @@ body {
     border-radius: 12px;
 }
 
-/* 控制面板佈局 */
 .control-panel {
     background: #455cff45;
     padding: 8px;
@@ -28,7 +34,8 @@ body {
 
 .input-row,
 .play-row,
-.offset-row {
+.offset-row,
+.font-set {
     display: flex;
     gap: 10px;
     margin-bottom: 12px;
@@ -81,15 +88,24 @@ input[type="range"] {
 .lrc-line {
     padding: 15px 10px;
     margin: 0;
-    font-size: 2.2rem;
-    color: #9c9c9c;
+    font-size: var(--lyrics-font-size);
+    color: var(--lyrics-font-color);
     transition: all 0.3s;
 }
 
 .lrc-line.active {
-    color: #fff;
-    font-size: 3.2rem;
+    color: var(--lyrics-font-color-active);
+    font-size: calc(var(--lyrics-font-size) + 1rem);
     font-weight: bold;
     transform: scale(1.05);
-    text-shadow: 1px 0px 1px #5600ff94, -1px 0px 1px #5600ff94, 0px 1px 1px #5600ff94, 0px -1px 1px #5600ff94;
+    text-shadow: 1px 0px 1px var(--lyrics-font-shadow-color), -1px 0px 1px var(--lyrics-font-shadow-color), 0px 1px 1px var(--lyrics-font-shadow-color), 0px -1px 1px var(--lyrics-font-shadow-color);
+}
+
+input[type="color"]{
+    border: 0px;
+    padding: 0px;
+    margin: 0px;
+    width: 22px;
+    height: 25px;
+    background-color: transparent;
 }
