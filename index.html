@@ -2170,11 +2170,6 @@
                 );
 
                 stage.style.setProperty(
-                    "--lyrics-base-color",
-                    "rgba(0,0,0,.65)"
-                );
-
-                stage.style.setProperty(
                     "--lyrics-empty-color",
                     "#aaa"
                 );
@@ -2185,22 +2180,12 @@
                         "黑";
                 }
 
-                if (backgroundColorInput) {
-
-                    backgroundColorInput.value =
-                        "#ffffff";
-                }
 
             } else {
 
                 stage.style.setProperty(
                     "--lyrics-background",
                     "#111"
-                );
-
-                stage.style.setProperty(
-                    "--lyrics-base-color",
-                    "rgba(255,255,255,.65)"
                 );
 
                 stage.style.setProperty(
@@ -2214,11 +2199,6 @@
                         "白";
                 }
 
-                if (backgroundColorInput) {
-
-                    backgroundColorInput.value =
-                        "#111111";
-                }
             }
 
             player.update();
@@ -2274,39 +2254,13 @@
                      * 直接修改字幕背景。
                      */
                     stage.style.setProperty(
-                        "--lyrics-background",
+                        "--lyrics-base-color",
                         color
                     );
 
                     /*
                      * 根據底色亮度決定一般文字顏色。
                      */
-                    const rgb =
-                        hexToRGB(color);
-
-                    if (rgb) {
-
-                        const brightness =
-                            (
-                                rgb.r * 299 +
-                                rgb.g * 587 +
-                                rgb.b * 114
-                            ) / 1000;
-
-                        stage.style.setProperty(
-                            "--lyrics-base-color",
-                            brightness > 160
-                                ? "rgba(0,0,0,.65)"
-                                : "rgba(255,255,255,.65)"
-                        );
-
-                        stage.style.setProperty(
-                            "--lyrics-empty-color",
-                            brightness > 160
-                                ? "#999"
-                                : "#555"
-                        );
-                    }
 
                     player.update();
 
