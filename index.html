@@ -1768,14 +1768,15 @@
                     document.getElementById(
                         "stage"
                     );
+                const backgroundColorInput =
+                    document.getElementById(
+                        "backgroundColorInput"
+                    );
 
                 const baseColor =
-                    stage
-                        ? getComputedStyle(stage)
-                            .getPropertyValue(
-                                "--lyrics-base-color"
-                            )
-                        : "rgba(255,255,255,.65)";
+                    backgroundColorInput
+                        ? backgroundColorInput.value
+                        : "#111111";
 
                 for (
                     let i = 0;
