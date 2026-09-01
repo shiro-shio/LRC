@@ -34,7 +34,8 @@
         }
 
         body.subtitle-mode {
-            background: transparent;
+            background: #fff;
+            color: #000;
         }
 
         /* =========================================================
@@ -112,8 +113,10 @@
         }
 
         body.subtitle-mode .stage {
+            --lyrics-background: #fff;
             width: 100%;
             height: 100vh;
+            background: #fff;
         }
 
         /* 字幕模式不顯示空白提示 */
@@ -343,7 +346,7 @@
    ========================================================= */
 
         .stage {
-            --lyrics-background: #ffffff;
+            --lyrics-background: #111;
             --lyrics-base-color: #ffffff;
             /* 未唱顏色 */
             --lyrics-fill-color: #7564a6;
@@ -357,7 +360,7 @@
             justify-content: center;
             align-items: center;
 
-            background: transparent;
+            background: #111;
             transition: background .15s ease;
         }
 
@@ -672,23 +675,6 @@
         }
 
         /* =========================================================
-   黑白切換按鈕
-   ========================================================= */
-
-        .theme-button {
-            position: absolute;
-            top: 19px;
-            right: 0;
-            width: 30px;
-            height: 29px;
-            transform: translateX(-50%);
-            border-radius: 15px;
-            padding: 0;
-            font-size: 13px;
-            z-index: 30;
-        }
-
-        /* =========================================================
    時間軸
    ========================================================= */
 
@@ -739,12 +725,6 @@
             font-size: 11px;
             font-variant-numeric: tabular-nums;
         }
-
-        /* =========================================================
-   底部時間偏移
-   ---------------------------------------------------------
-   整條貼到底部並佔滿
-   ========================================================= */
 
         .offset-bar {
             height: 70px;
@@ -860,11 +840,6 @@
 <body>
 
     <div class="app">
-
-        <!-- =====================================================
-         左側控制器
-         ===================================================== -->
-
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-content">
                 <h2>LRC 字幕設定</h2>
@@ -994,17 +969,7 @@
             <div class="sidebar-resizer" id="sidebarResizer"></div>
         </aside>
 
-
-        <!-- =====================================================
-         中央 / controller 第 2 區
-         ===================================================== -->
-
         <main class="stage" id="stage">
-
-            <!-- ================================================
-             原本字幕舞台
-             非 controller 時正常使用
-             ================================================ -->
 
             <div class="lyrics" id="lyrics">
 
@@ -1017,14 +982,6 @@
                 <div class="lyrics-center-fade"></div>
 
             </div>
-
-            <!-- ================================================
-             controller 專用 YouTube 區域
-
-             左：歌詞設定
-             中：YouTube
-             右：時間軸
-             ================================================ -->
 
             <div class="controller-audio" id="controllerAudio">
                 <div class="controller-audio-header">
@@ -1061,17 +1018,6 @@
             </div>
         </main>
 
-        <!-- =====================================================
-         第 3 區：右側時間軸
-         -----------------------------------------------------
-         controller：
-
-         YouTube | 時間軸
-
-         subtitle：
-         完全隱藏
-         ===================================================== -->
-
         <aside class="timeline" id="timeline">
             <div class="timeline-track"></div>
             <div class="timeline-progress" id="timelineProgress"></div>
@@ -1081,11 +1027,6 @@
             </div>
         </aside>
     </div>
-
-
-    <!-- =========================================================
-     最下面控制列
-     ========================================================= -->
 
     <footer class="offset-bar">
         <div class="play-control">
@@ -1117,14 +1058,6 @@
 
     <script>
 
-        /* =========================================================
-           頁面模式
-           ---------------------------------------------------------
-           /             → 完整模式
-           ?controller   → 控制器
-           ?subtitle     → 字幕輸出
-           ========================================================= */
-
         const params =
             new URLSearchParams(
                 window.location.search
@@ -1151,11 +1084,6 @@
             );
         }
 
-
-        /* =========================================================
-           BroadcastChannel
-           ========================================================= */
-
         const BROADCAST_CHANNEL_NAME =
             "lrc-lyrics-controller";
 
@@ -1165,11 +1093,6 @@
                     BROADCAST_CHANNEL_NAME
                 )
                 : null;
-
-
-        /* =========================================================
-           Broadcast 狀態
-           ========================================================= */
 
         let broadcastConnected = false;
 
@@ -1209,11 +1132,6 @@
             }
         }
 
-
-        /* =========================================================
-           Broadcast 傳送
-           ========================================================= */
-
         function broadcast(
             type,
             payload = {}
@@ -1230,21 +1148,13 @@
         }
 
 
-        /* =========================================================
-           LRC Parser
-           ========================================================= */
-
         class LRCParser {
-
             static parse(text) {
-
                 const result = [];
-
                 for (
                     const line of
                     text.split(/\r?\n/)
                 ) {
-
                     const matches = [
                         ...line.matchAll(
                             /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g
@@ -1268,25 +1178,9 @@
                         matches
                     ) {
 
-                        const minutes =
-                            Number(
-                                match[1]
-                            );
-
-                        const seconds =
-                            Number(
-                                match[2]
-                            );
-
-                        const milliseconds =
-                            match[3]
-                                ? Number(
-                                    match[3].padEnd(
-                                        3,
-                                        "0"
-                                    )
-                                )
-                                : 0;
+                        const minutes = Number(match[1]);
+                        const seconds = Number(match[2]);
+                        const milliseconds = match[3]? Number(match[3].padEnd(3,"0")): 0;
 
                         result.push({
                             time:
@@ -1315,7 +1209,6 @@
            ========================================================= */
 
         class LRCLIB {
-
             static baseURL =
                 "https://lrclib.net/api";
 
@@ -1330,7 +1223,6 @@
                     });
 
                 if (artistName) {
-
                     params.set(
                         "artist_name",
                         artistName
@@ -1348,12 +1240,10 @@
                         `/get HTTP ${response.status}`
                     );
                 }
-
                 return response.json();
             }
 
             static async search(query) {
-
                 const params =
                     new URLSearchParams({
                         q: query
@@ -1365,7 +1255,6 @@
                     );
 
                 if (!response.ok) {
-
                     throw new Error(
                         `/search HTTP ${response.status}`
                     );
@@ -1381,35 +1270,17 @@
            ========================================================= */
 
         class LRCPlayer {
-
             constructor() {
-
                 this.lyrics = [];
-
                 this.currentTime = 0;
-
                 this.offset = 0;
-
                 this.playing = false;
-
                 this.animationFrame = null;
-
                 this.lastFrame = 0;
-
                 this.lineHeight = 52;
-
-                this.track =
-                    document.getElementById(
-                        "lyricsTrack"
-                    );
-
-                this.emptyLyrics =
-                    document.getElementById(
-                        "emptyLyrics"
-                    );
-
+                this.track = document.getElementById("lyricsTrack");
+                this.emptyLyrics = document.getElementById("emptyLyrics");
                 this.slots = [];
-
                 this.render();
             }
 
@@ -1419,78 +1290,44 @@
             ) {
 
                 this.pause(false);
-
-                this.lyrics =
-                    LRCParser.parse(
-                        lrcText
-                    );
-
+                this.lyrics =LRCParser.parse(lrcText);
                 this.currentTime = 0;
-
                 this.render();
-
                 this.update();
-
                 updatePlayButton();
 
                 if (
                     shouldBroadcast &&
                     pageMode !== "subtitle"
                 ) {
-
-                    broadcast(
-                        "lyrics-load",
-                        {
-                            lrcText
-                        }
-                    );
+                    broadcast("lyrics-load",{lrcText});
                 }
             }
 
             render() {
-
                 if (!this.track) {
                     return;
                 }
 
                 this.track.innerHTML = "";
-
                 this.slots = [];
-
                 if (!this.lyrics.length) {
-
                     if (this.emptyLyrics) {
-
                         this.emptyLyrics.style.display =
                             "block";
                     }
-
                     return;
                 }
 
                 if (this.emptyLyrics) {
-
                     this.emptyLyrics.style.display =
                         "none";
                 }
 
-                for (
-                    let i = 0;
-                    i < this.lyrics.length;
-                    i++
-                ) {
-
-                    const element =
-                        document.createElement(
-                            "div"
-                        );
-
-                    element.className =
-                        "lyric-line";
-
-                    const text =
-                        this.lyrics[i].text;
-
+                for ( let i = 0; i < this.lyrics.length; i++) {
+                    const element = document.createElement("div");
+                    element.className = "lyric-line";
+                    const text = this.lyrics[i].text;
                     element.innerHTML = `
                 <span class="lyric-text">
                     <span class="lyric-base">
@@ -1502,22 +1339,12 @@
                 </span>
             `;
 
-                    element.style.top =
-                        `${i * this.lineHeight}px`;
-
-                    this.track.appendChild(
-                        element
-                    );
-
-                    this.slots.push(
-                        element
-                    );
+                    element.style.top = `${i * this.lineHeight}px`;
+                    this.track.appendChild(element);
+                    this.slots.push(element);
                 }
 
-                this.track.style.height =
-                    `${this.lyrics.length *
-                    this.lineHeight
-                    }px`;
+                this.track.style.height =`${this.lyrics.length * this.lineHeight}px`;
             }
 
             setTime(
@@ -2145,96 +1972,11 @@
                 "stage"
             );
 
-        const themeButton =
-            document.getElementById(
-                "themeButton"
-            );
 
         const backgroundColorInput =
             document.getElementById(
                 "backgroundColorInput"
             );
-
-        let lyricsTheme =
-            "black";
-
-
-        function updateLyricsTheme(
-            shouldBroadcast = true
-        ) {
-
-            if (lyricsTheme === "white") {
-
-                stage.style.setProperty(
-                    "--lyrics-background",
-                    "#fff"
-                );
-
-                stage.style.setProperty(
-                    "--lyrics-empty-color",
-                    "#aaa"
-                );
-
-                if (themeButton) {
-
-                    themeButton.textContent =
-                        "黑";
-                }
-
-
-            } else {
-
-                stage.style.setProperty(
-                    "--lyrics-background",
-                    "#111"
-                );
-
-                stage.style.setProperty(
-                    "--lyrics-empty-color",
-                    "#555"
-                );
-
-                if (themeButton) {
-
-                    themeButton.textContent =
-                        "白";
-                }
-
-            }
-
-            player.update();
-
-            if (
-                shouldBroadcast &&
-                pageMode !== "subtitle"
-            ) {
-
-                broadcast(
-                    "theme",
-                    {
-                        theme:
-                            lyricsTheme
-                    }
-                );
-            }
-        }
-
-
-        if (themeButton) {
-
-            themeButton.addEventListener(
-                "click",
-                () => {
-
-                    lyricsTheme =
-                        lyricsTheme === "black"
-                            ? "white"
-                            : "black";
-
-                    updateLyricsTheme();
-                }
-            );
-        }
 
 
         /* =========================================================
@@ -4233,29 +3975,6 @@
 
                             break;
 
-
-                        /* -----------------------------------------
-                           主題
-                           ----------------------------------------- */
-
-                        case "theme":
-
-                            if (
-                                pageMode ===
-                                "subtitle"
-                            ) {
-
-                                lyricsTheme =
-                                    message.theme;
-
-                                updateLyricsTheme(
-                                    false
-                                );
-                            }
-
-                            break;
-
-
                         /* -----------------------------------------
                            字體
                            ----------------------------------------- */
@@ -4312,11 +4031,6 @@
                                 pageMode ===
                                 "subtitle"
                             ) {
-
-                                stage.style.setProperty(
-                                    "--lyrics-background",
-                                    message.color
-                                );
 
                                 if (
                                     backgroundColorInput
@@ -4410,9 +4124,6 @@
 
                                         offset:
                                             player.offset,
-
-                                        theme:
-                                            lyricsTheme,
 
                                         color:
                                             colorInput
@@ -4545,21 +4256,6 @@
             }
 
             if (
-                state.theme ===
-                "black" ||
-                state.theme ===
-                "white"
-            ) {
-
-                lyricsTheme =
-                    state.theme;
-
-                updateLyricsTheme(
-                    false
-                );
-            }
-
-            if (
                 state.color &&
                 colorInput
             ) {
@@ -4573,11 +4269,6 @@
             if (
                 state.backgroundColor
             ) {
-
-                stage.style.setProperty(
-                    "--lyrics-background",
-                    state.backgroundColor
-                );
 
                 if (
                     backgroundColorInput
@@ -4672,10 +4363,6 @@
         /* =========================================================
            初始化
            ========================================================= */
-
-        updateLyricsTheme(
-            false
-        );
 
         updatePlaybackModeUI();
 
