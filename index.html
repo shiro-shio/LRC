@@ -932,7 +932,7 @@
                             <div class="color-setting-label">
                                 歌詞底色
                             </div>
-                            <input id="backgroundColorInput" class="color-input" type="color" value="#111111">
+                            <input id="backgroundColorInput" class="color-input" type="color" value="#888888">
                         </div>
                     </div>
                 </div>
@@ -1392,7 +1392,17 @@
 
                 this.offset =
                     Number(value) || 0;
+                const duration =
+                    this.getDuration();
 
+                this.currentTime =
+                    Math.max(
+                        0,
+                        Math.min(
+                            duration,
+                            this.currentTime
+                        )
+                    );
                 this.update();
 
                 if (
@@ -1420,7 +1430,7 @@
                     0,
                     this.lyrics[
                         this.lyrics.length - 1
-                    ].time
+                    ].time - this.offset
                 );
             }
 
