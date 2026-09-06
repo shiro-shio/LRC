@@ -1,0 +1,918 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    overflow: hidden;
+    background: transparent;
+    color: #fff;
+    font-family: Arial, "Noto Sans TC", sans-serif;
+}
+
+/* =========================================================
+   模式
+   ========================================================= */
+
+body.controller-mode {
+    background: #181818;
+}
+
+body.subtitle-mode {
+    background: #fff;
+    color: #000;
+}
+
+/* =========================================================
+   主版面
+   ---------------------------------------------------------
+   注意：
+   這是「非 controller」時原本的版面。
+   controller 會在下面另外覆寫。
+   ========================================================= */
+
+.app {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 70px;
+    width: 100%;
+    height: calc(100vh - 70px);
+}
+
+/* =========================================================
+   控制器模式
+   ========================================================= */
+
+body.controller-mode .app {
+    grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.5fr) 70px;
+    height: calc(100vh - 70px);
+}
+
+/* controller 不顯示中央字幕舞台 */
+body.controller-mode .stage {
+    display: block;
+    min-width: 0;
+    background: #181818;
+}
+
+/*
+ * controller 模式下，
+ * stage 不再顯示字幕，而是放「控制器音源區」。
+ */
+body.controller-mode .stage>.lyrics {
+    display: none;
+}
+
+/* controller 不使用原本 stage 的空白提示 */
+body.controller-mode .empty-lyrics {
+    display: none;
+}
+
+/* controller 下 sidebar 是左側設定區 */
+body.controller-mode .sidebar {
+    width: auto;
+    max-width: none;
+    min-width: 280px;
+    border-right: 1px solid #2c2c2c;
+}
+
+/* controller 下不需要原本 sidebar 裡的 YouTube */
+body.controller-mode .sidebar-youtube-section {
+    display: none;
+}
+
+/* =========================================================
+   字幕模式
+   ========================================================= */
+
+body.subtitle-mode .sidebar,
+body.subtitle-mode .timeline,
+body.subtitle-mode .offset-bar,
+body.subtitle-mode .controller-audio {
+    display: none;
+}
+
+body.subtitle-mode .app {
+    display: block;
+    width: 100%;
+    height: 100vh;
+}
+
+body.subtitle-mode .stage {
+    --lyrics-background: #fff;
+    width: 100%;
+    height: 100vh;
+    background: #fff;
+}
+
+/* 字幕模式不顯示空白提示 */
+body.subtitle-mode .empty-lyrics {
+    display: none !important;
+}
+
+/* =========================================================
+   左側設定欄
+   ========================================================= */
+
+.sidebar {
+    position: relative;
+    min-width: 180px;
+    max-width: 500px;
+    background: #181818;
+    border-right: 1px solid #2c2c2c;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar,
+.lyric-results::-webkit-scrollbar {
+    display: none;
+}
+
+.sidebar-content {
+    padding: 20px;
+}
+
+.sidebar h2 {
+    margin: 0 0 20px;
+    font-size: 18px;
+}
+
+.section {
+    margin-bottom: 18px;
+}
+
+.section-title {
+    margin-bottom: 8px;
+    color: #999;
+    font-size: 13px;
+}
+
+/* =========================================================
+   左側拖曳調整寬度
+   ========================================================= */
+
+.sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 50;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:active {
+    background: #555;
+}
+
+/* =========================================================
+   搜尋
+   ========================================================= */
+
+.search {
+    display: flex;
+    gap: 6px;
+}
+
+.search input {
+    width: 0;
+    flex: 1;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid #333;
+    border-radius: 5px;
+    outline: none;
+    background: #222;
+    color: #fff;
+}
+
+.search button {
+    flex-shrink: 0;
+}
+
+/* =========================================================
+   通用按鈕
+   ========================================================= */
+
+button,
+select,
+input[type="color"] {
+    border: 1px solid #333;
+    border-radius: 5px;
+    background: #222;
+    color: #fff;
+}
+
+button {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #303030;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* =========================================================
+   歌詞搜尋結果
+   ========================================================= */
+
+.lyric-results {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.lyric-result {
+    padding: 10px;
+    border-radius: 5px;
+    background: #222;
+    cursor: pointer;
+    transition: background .15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lyric-result:hover {
+    background: #303030;
+}
+
+.lyric-result.active {
+    background: #383838;
+}
+
+.lyric-result-title {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.lyric-result-artist {
+    min-width: 0;
+    overflow: hidden;
+    color: #888;
+    font-size: 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.custom-lyrics {
+    display: flex;
+    align-items: center;
+}
+
+.custom-lyrics button {
+    padding: 5px 8px;
+}
+
+.custom-lrc-name {
+    max-width: 100%;
+    margin-top: 6px;
+    overflow: hidden;
+    color: #666;
+    font-size: 11px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* =========================================================
+   設定
+   ========================================================= */
+
+.setting {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.setting select {
+    width: 100%;
+    padding: 8px;
+}
+
+/* 字體選單與大小按鈕同排 */
+.font-setting {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.font-setting select {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 字體大小 +/− 按鈕 */
+.font-size-btn {
+    flex-shrink: 0;
+    width: 34px;
+    padding: 0;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.color-input {
+    width: 100%;
+    height: 38px;
+    padding: 2px;
+    cursor: pointer;
+}
+
+/* 顏色設定左右排列 */
+.color-settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.color-setting {
+    min-width: 0;
+}
+
+.color-setting-label {
+    margin-bottom: 5px;
+    color: #777;
+    font-size: 11px;
+}
+
+/* =========================================================
+   原本中央舞台
+   ========================================================= */
+
+.stage {
+    --lyrics-background: #111;
+    --lyrics-base-color: #ffffff;
+    /* 未唱顏色 */
+    --lyrics-fill-color: #7564a6;
+    /* 已唱顏色 */
+    --lyrics-empty-color: #555;
+    position: relative;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111;
+    transition: background .15s ease;
+}
+
+/* =========================================================
+   歌詞視窗
+   ========================================================= */
+
+.lyrics {
+    position: relative;
+    width: min(900px, 90%);
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    transition: background .15s ease;
+}
+
+.lyrics-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    transform: translateY(0);
+    will-change: transform;
+}
+
+/* =========================================================
+   歌詞行
+   ========================================================= */
+
+.lyric-line {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 52px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 20px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    font-size: 21px;
+    font-weight: 400;
+    transition:
+        color .2s ease,
+        font-size .2s ease,
+        font-weight .2s ease;
+    will-change: transform, opacity, filter;
+}
+
+.lyric-text {
+    position: relative;
+    display: inline-block;
+}
+
+.lyric-base {
+    display: block;
+    color: var(--lyrics-base-color);
+    transition: color .15s ease;
+}
+
+.lyric-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0%;
+    overflow: hidden;
+    white-space: nowrap;
+    color: var(--lyrics-fill-color);
+    pointer-events: none;
+}
+
+/* =========================================================
+   煙霧消散效果
+   ---------------------------------------------------------
+   逐字動畫由 anime.js 驅動（位移 / 模糊 / 淡出各自作用在字元上）。
+   不使用任何背景、遮罩或 canvas。
+   在字幕模式白底上，黑字淡出成煙，OBS 去背安全。
+   ========================================================= */
+.smoke-line {
+    /* 讓字元動畫可以飄出原本行高，不被裁切 */
+    overflow: visible;
+}
+
+/* 逐字元容器：anime.js 會對每個字設定 transform / opacity / filter */
+.smoke-char {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+}
+
+/* =========================================================
+   直排左右交替效果
+   ---------------------------------------------------------
+   直向排列（由上往下、列由右到左），依奇偶靠右 / 靠左。
+   打字機逐字顯示（字元 opacity 由 JS 控制）。
+   太長時遇空白會自動換到左邊一列（vertical-rl + wrap）。
+   只作用在文字，不使用任何背景，OBS 白底去背安全。
+   ========================================================= */
+.vertical-line {
+    /* 覆寫原本 lyric-line 的水平置中排版，改為直排定位 */
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    width: auto;
+    padding: 40px 0;
+    overflow: visible;
+
+    /* 各列（vertical-col）水平並排；vertical-rl 下由右往左疊 */
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+
+    font-size: 40px;
+    font-weight: 600;
+}
+
+/* 靠右：第 1、3、5… 句（列由右往左展開） */
+.vertical-line.vertical-right {
+    right: 6%;
+    left: auto;
+    flex-direction: row-reverse;
+}
+
+/* 靠左：第 2、4、6… 句 */
+.vertical-line.vertical-left {
+    left: 6%;
+    right: auto;
+    flex-direction: row-reverse;
+}
+
+/* fill 層不需要（改用逐字 opacity），隱藏它 */
+.vertical-line .lyric-fill {
+    display: none;
+}
+
+.vertical-line .lyric-text,
+.vertical-line .lyric-base {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-start;
+}
+
+/* 每一列：直排欄（字由上往下），依 --col-offset 往下錯開 */
+.vertical-col {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    white-space: nowrap;
+    margin-top: var(--col-offset, 0px);
+    line-height: 1.15;
+    letter-spacing: 2px;
+}
+
+/* 直排的逐字元 */
+.vertical-col .smoke-char {
+    display: inline-block;
+}
+
+/* =========================================================
+   Fade
+   ========================================================= */
+
+.lyrics::before,
+.lyrics::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 5px;
+    z-index: 20;
+    pointer-events: none;
+}
+
+.lyrics::before {
+    top: 0;
+    background: linear-gradient(to bottom,
+            var(--lyrics-background),
+            color-mix(in srgb,
+                var(--lyrics-background),
+                transparent 100%));
+}
+
+.lyrics::after {
+    bottom: 0;
+    background: linear-gradient(to top,
+            var(--lyrics-background),
+            color-mix(in srgb,
+                var(--lyrics-background),
+                transparent 100%));
+}
+
+/* =========================================================
+   中央 Fade
+   ========================================================= */
+
+.lyrics-center-fade {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% - 18px);
+    height: 52px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 15;
+}
+
+.lyrics-center-fade::before,
+.lyrics-center-fade::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 5px;
+}
+
+.lyrics-center-fade::before {
+    top: 0;
+    background: linear-gradient(to bottom,
+            color-mix(in srgb,
+                var(--lyrics-background),
+                transparent 65%),
+            transparent);
+}
+
+.lyrics-center-fade::after {
+    bottom: 0;
+    background: linear-gradient(to top,
+            color-mix(in srgb,
+                var(--lyrics-background),
+                transparent 65%),
+            transparent);
+}
+
+/* =========================================================
+   空白狀態
+   ========================================================= */
+
+.empty-lyrics {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: var(--lyrics-empty-color);
+    pointer-events: none;
+}
+
+/* =========================================================
+   第 2 區：Controller YouTube 音源
+   ---------------------------------------------------------
+   只在 ?controller 顯示
+   ========================================================= */
+
+.controller-audio {
+    display: none;
+}
+
+body.controller-mode .controller-audio {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    background: #181818;
+}
+
+/* controller 音源標題 */
+.controller-audio-header {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    border-bottom: 1px solid #2c2c2c;
+    flex-shrink: 0;
+}
+
+.controller-audio-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.controller-audio-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    padding: 18px;
+}
+
+/* =========================================================
+   YouTube 載入
+   ========================================================= */
+
+.youtube-control {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.youtube-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #333;
+    border-radius: 5px;
+    outline: none;
+    background: #222;
+    color: #fff;
+}
+
+.youtube-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.youtube-actions button:first-child {
+    flex: 1;
+}
+
+.youtube-time {
+    color: #777;
+    font-size: 11px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * controller 中的 YouTube 播放器
+ * 自動吃掉右側剩餘空間。
+ */
+.controller-youtube-player {
+    position: relative;
+    width: 100%;
+    margin-top: 12px;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #000;
+    aspect-ratio: 16 / 9;
+}
+
+.controller-youtube-player iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* =========================================================
+   controller 音源資訊
+   ========================================================= */
+
+.youtube-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 5px;
+    background: #222;
+}
+
+.youtube-info-label {
+    color: #777;
+    font-size: 11px;
+}
+
+.youtube-info-value {
+    min-width: 0;
+    overflow: hidden;
+    color: #bbb;
+    font-size: 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* =========================================================
+   右側第 3 區：時間軸
+   ========================================================= */
+
+.timeline {
+    position: relative;
+    background: #181818;
+    border-left: 1px solid #2c2c2c;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+/* =========================================================
+   時間軸
+   ========================================================= */
+
+.timeline-track {
+    position: absolute;
+    top: 30px;
+    bottom: 30px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: #444;
+}
+
+.timeline-progress {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: #aaa;
+}
+
+.timeline-thumb {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #fff;
+    cursor: grab;
+    z-index: 10;
+}
+
+.timeline-thumb:active {
+    cursor: grabbing;
+}
+
+.timeline-time {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 14px;
+    white-space: nowrap;
+    color: #aaa;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.offset-bar {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    gap: 15px;
+    padding: 0 25px;
+    background: #181818;
+    border-top: 1px solid #2c2c2c;
+}
+
+.offset-title {
+    white-space: nowrap;
+    color: #aaa;
+}
+
+.offset-slider {
+    flex: 1;
+    min-width: 0;
+}
+
+.offset-range {
+    width: 100%;
+}
+
+.offset-label {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 11px;
+}
+
+.offset-value {
+    width: 55px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   播放控制
+   ========================================================= */
+
+.play-control {
+    display: flex;
+    gap: 6px;
+}
+
+.play-button {
+    width: 40px;
+}
+
+.mode-button {
+    min-width: 82px;
+}
+
+/* =========================================================
+   BroadcastChannel 狀態
+   ========================================================= */
+
+.connection-status {
+    margin-top: 20px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    background: #222;
+    color: #777;
+    font-size: 11px;
+    text-align: center;
+}
+
+.connection-status.connected {
+    color: #aaa;
+}
+
+/* =========================================================
+   controller 版 Broadcast 狀態
+   ========================================================= */
+
+body.controller-mode .connection-status {
+    margin-top: 8px;
+}
+
+/* =========================================================
+   controller 響應式
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    body.controller-mode .app {
+        grid-template-columns: minmax(230px, 1fr) minmax(300px, 1.3fr) 60px;
+    }
+
+    .sidebar-content {
+        padding: 15px;
+    }
+
+    .controller-audio-content {
+        padding: 15px;
+    }
+
+    .offset-bar {
+        padding: 0 15px;
+        gap: 8px;
+    }
+}
