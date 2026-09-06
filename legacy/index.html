@@ -1,0 +1,4383 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LRC 動態字幕</title>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            overflow: hidden;
+            background: transparent;
+            color: #fff;
+            font-family: Arial, "Noto Sans TC", sans-serif;
+        }
+
+        /* =========================================================
+   模式
+   ========================================================= */
+
+        body.controller-mode {
+            background: #181818;
+        }
+
+        body.subtitle-mode {
+            background: #fff;
+            color: #000;
+        }
+
+        /* =========================================================
+   主版面
+   ---------------------------------------------------------
+   注意：
+   這是「非 controller」時原本的版面。
+   controller 會在下面另外覆寫。
+   ========================================================= */
+
+        .app {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr) 70px;
+            width: 100%;
+            height: calc(100vh - 70px);
+        }
+
+        /* =========================================================
+   控制器模式
+   ========================================================= */
+
+        body.controller-mode .app {
+            grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.5fr) 70px;
+            height: calc(100vh - 70px);
+        }
+
+        /* controller 不顯示中央字幕舞台 */
+        body.controller-mode .stage {
+            display: block;
+            min-width: 0;
+            background: #181818;
+        }
+
+        /*
+ * controller 模式下，
+ * stage 不再顯示字幕，而是放「控制器音源區」。
+ */
+        body.controller-mode .stage>.lyrics {
+            display: none;
+        }
+
+        /* controller 不使用原本 stage 的空白提示 */
+        body.controller-mode .empty-lyrics {
+            display: none;
+        }
+
+        /* controller 下 sidebar 是左側設定區 */
+        body.controller-mode .sidebar {
+            width: auto;
+            max-width: none;
+            min-width: 280px;
+            border-right: 1px solid #2c2c2c;
+        }
+
+        /* controller 下不需要原本 sidebar 裡的 YouTube */
+        body.controller-mode .sidebar-youtube-section {
+            display: none;
+        }
+
+        /* =========================================================
+   字幕模式
+   ========================================================= */
+
+        body.subtitle-mode .sidebar,
+        body.subtitle-mode .timeline,
+        body.subtitle-mode .offset-bar,
+        body.subtitle-mode .controller-audio {
+            display: none;
+        }
+
+        body.subtitle-mode .app {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+
+        body.subtitle-mode .stage {
+            --lyrics-background: #fff;
+            width: 100%;
+            height: 100vh;
+            background: #fff;
+        }
+
+        /* 字幕模式不顯示空白提示 */
+        body.subtitle-mode .empty-lyrics {
+            display: none !important;
+        }
+
+        /* =========================================================
+   左側設定欄
+   ========================================================= */
+
+        .sidebar {
+            position: relative;
+            min-width: 180px;
+            max-width: 500px;
+            background: #181818;
+            border-right: 1px solid #2c2c2c;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .sidebar::-webkit-scrollbar,
+        .lyric-results::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sidebar-content {
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            margin: 0 0 20px;
+            font-size: 18px;
+        }
+
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section-title {
+            margin-bottom: 8px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        /* =========================================================
+   左側拖曳調整寬度
+   ========================================================= */
+
+        .sidebar-resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 50;
+        }
+
+        .sidebar-resizer:hover,
+        .sidebar-resizer:active {
+            background: #555;
+        }
+
+        /* =========================================================
+   搜尋
+   ========================================================= */
+
+        .search {
+            display: flex;
+            gap: 6px;
+        }
+
+        .search input {
+            width: 0;
+            flex: 1;
+            min-width: 0;
+            padding: 9px 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            outline: none;
+            background: #222;
+            color: #fff;
+        }
+
+        .search button {
+            flex-shrink: 0;
+        }
+
+        /* =========================================================
+   通用按鈕
+   ========================================================= */
+
+        button,
+        select,
+        input[type="color"] {
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #222;
+            color: #fff;
+        }
+
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #303030;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+   歌詞搜尋結果
+   ========================================================= */
+
+        .lyric-results {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 180px;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .lyric-result {
+            padding: 10px;
+            border-radius: 5px;
+            background: #222;
+            cursor: pointer;
+            transition: background .15s;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lyric-result:hover {
+            background: #303030;
+        }
+
+        .lyric-result.active {
+            background: #383838;
+        }
+
+        .lyric-result-title {
+            min-width: 0;
+            overflow: hidden;
+            font-size: 14px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .lyric-result-artist {
+            min-width: 0;
+            overflow: hidden;
+            color: #888;
+            font-size: 12px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .custom-lyrics {
+            display: flex;
+            align-items: center;
+        }
+
+        .custom-lyrics button {
+            padding: 5px 8px;
+        }
+
+        .custom-lrc-name {
+            max-width: 100%;
+            margin-top: 6px;
+            overflow: hidden;
+            color: #666;
+            font-size: 11px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        /* =========================================================
+   設定
+   ========================================================= */
+
+        .setting {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .setting select {
+            width: 100%;
+            padding: 8px;
+        }
+
+        .color-input {
+            width: 100%;
+            height: 38px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        /* 顏色設定左右排列 */
+        .color-settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .color-setting {
+            min-width: 0;
+        }
+
+        .color-setting-label {
+            margin-bottom: 5px;
+            color: #777;
+            font-size: 11px;
+        }
+
+        /* =========================================================
+   原本中央舞台
+   ========================================================= */
+
+        .stage {
+            --lyrics-background: #111;
+            --lyrics-base-color: #ffffff;
+            /* 未唱顏色 */
+            --lyrics-fill-color: #7564a6;
+            /* 已唱顏色 */
+            --lyrics-empty-color: #555;
+
+            position: relative;
+            min-width: 0;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            background: #111;
+            transition: background .15s ease;
+        }
+
+        /* =========================================================
+   歌詞視窗
+   ========================================================= */
+
+        .lyrics {
+            position: relative;
+
+            width: min(900px, 90%);
+            height: 100%;
+
+            overflow: hidden;
+
+            background: transparent;
+
+            transition: background .15s ease;
+        }
+
+        .lyrics-track {
+            position: absolute;
+
+            left: 0;
+            top: 0;
+
+            width: 100%;
+
+            transform: translateY(0);
+
+            will-change: transform;
+        }
+
+        /* =========================================================
+   歌詞行
+   ========================================================= */
+
+        .lyric-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 52px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 20px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            font-size: 21px;
+            font-weight: 400;
+            transition:
+                color .2s ease,
+                font-size .2s ease,
+                font-weight .2s ease;
+
+            will-change: transform, opacity, filter;
+        }
+
+        .lyric-text {
+            position: relative;
+            display: inline-block;
+        }
+
+        .lyric-base {
+            display: block;
+            color: var(--lyrics-base-color);
+            transition: color .15s ease;
+        }
+
+        .lyric-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0%;
+            overflow: hidden;
+            white-space: nowrap;
+            color: var(--lyrics-fill-color);
+            pointer-events: none;
+        }
+
+        /* =========================================================
+   Fade
+   ========================================================= */
+
+        .lyrics::before,
+        .lyrics::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 5px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .lyrics::before {
+            top: 0;
+            background: linear-gradient(to bottom,
+                    var(--lyrics-background),
+                    color-mix(in srgb,
+                        var(--lyrics-background),
+                        transparent 100%));
+        }
+
+        .lyrics::after {
+            bottom: 0;
+            background: linear-gradient(to top,
+                    var(--lyrics-background),
+                    color-mix(in srgb,
+                        var(--lyrics-background),
+                        transparent 100%));
+        }
+
+        /* =========================================================
+   中央 Fade
+   ========================================================= */
+
+        .lyrics-center-fade {
+            display: none;
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(50% - 18px);
+            height: 52px;
+            transform: translateY(-50%);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .lyrics-center-fade::before,
+        .lyrics-center-fade::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 5px;
+        }
+
+        .lyrics-center-fade::before {
+            top: 0;
+            background: linear-gradient(to bottom,
+                    color-mix(in srgb,
+                        var(--lyrics-background),
+                        transparent 65%),
+                    transparent);
+        }
+
+        .lyrics-center-fade::after {
+            bottom: 0;
+            background: linear-gradient(to top,
+                    color-mix(in srgb,
+                        var(--lyrics-background),
+                        transparent 65%),
+                    transparent);
+        }
+
+        /* =========================================================
+   空白狀態
+   ========================================================= */
+
+        .empty-lyrics {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            transform: translateY(-50%);
+            text-align: center;
+            color: var(--lyrics-empty-color);
+            pointer-events: none;
+        }
+
+        /* =========================================================
+   第 2 區：Controller YouTube 音源
+   ---------------------------------------------------------
+   只在 ?controller 顯示
+   ========================================================= */
+
+        .controller-audio {
+            display: none;
+        }
+
+        body.controller-mode .controller-audio {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            background: #181818;
+        }
+
+        /* controller 音源標題 */
+        .controller-audio-header {
+            height: 58px;
+            display: flex;
+            align-items: center;
+            padding: 0 18px;
+            border-bottom: 1px solid #2c2c2c;
+            flex-shrink: 0;
+        }
+
+        .controller-audio-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .controller-audio-content {
+            display: flex;
+            flex-direction: column;
+
+            min-height: 0;
+            flex: 1;
+
+            padding: 18px;
+        }
+
+        /* =========================================================
+   YouTube 載入
+   ========================================================= */
+
+        .youtube-control {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .youtube-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            outline: none;
+            background: #222;
+            color: #fff;
+        }
+
+        .youtube-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .youtube-actions button:first-child {
+            flex: 1;
+        }
+
+        .youtube-time {
+            color: #777;
+            font-size: 11px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /*
+ * controller 中的 YouTube 播放器
+ * 自動吃掉右側剩餘空間。
+ */
+        .controller-youtube-player {
+            position: relative;
+            width: 100%;
+            margin-top: 12px;
+            overflow: hidden;
+            border-radius: 6px;
+            background: #000;
+            aspect-ratio: 16 / 9;
+        }
+
+        .controller-youtube-player iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        /* =========================================================
+   controller 音源資訊
+   ========================================================= */
+
+        .youtube-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 5px;
+            background: #222;
+        }
+
+        .youtube-info-label {
+            color: #777;
+            font-size: 11px;
+        }
+
+        .youtube-info-value {
+            min-width: 0;
+            overflow: hidden;
+            color: #bbb;
+            font-size: 12px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        /* =========================================================
+   右側第 3 區：時間軸
+   ========================================================= */
+
+        .timeline {
+            position: relative;
+            background: #181818;
+            border-left: 1px solid #2c2c2c;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* =========================================================
+   時間軸
+   ========================================================= */
+
+        .timeline-track {
+            position: absolute;
+            top: 30px;
+            bottom: 30px;
+            left: 50%;
+            width: 2px;
+            transform: translateX(-50%);
+            background: #444;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            width: 2px;
+            transform: translateX(-50%);
+            background: #aaa;
+        }
+
+        .timeline-thumb {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            width: 24px;
+            height: 24px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: #fff;
+            cursor: grab;
+            z-index: 10;
+        }
+
+        .timeline-thumb:active {
+            cursor: grabbing;
+        }
+
+        .timeline-time {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 14px;
+            white-space: nowrap;
+            color: #aaa;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .offset-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            gap: 15px;
+            padding: 0 25px;
+            background: #181818;
+            border-top: 1px solid #2c2c2c;
+        }
+
+        .offset-title {
+            white-space: nowrap;
+            color: #aaa;
+        }
+
+        .offset-slider {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .offset-range {
+            width: 100%;
+        }
+
+        .offset-label {
+            display: flex;
+            justify-content: space-between;
+
+            color: #666;
+
+            font-size: 11px;
+        }
+
+        .offset-value {
+            width: 55px;
+
+            text-align: center;
+
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* =========================================================
+   播放控制
+   ========================================================= */
+
+        .play-control {
+            display: flex;
+            gap: 6px;
+        }
+
+        .play-button {
+            width: 40px;
+        }
+
+        .mode-button {
+            min-width: 82px;
+        }
+
+        /* =========================================================
+   BroadcastChannel 狀態
+   ========================================================= */
+
+        .connection-status {
+            margin-top: 20px;
+            padding: 8px 10px;
+            border-radius: 5px;
+            background: #222;
+            color: #777;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .connection-status.connected {
+            color: #aaa;
+        }
+
+        /* =========================================================
+   controller 版 Broadcast 狀態
+   ========================================================= */
+
+        body.controller-mode .connection-status {
+            margin-top: 8px;
+        }
+
+        /* =========================================================
+   controller 響應式
+   ========================================================= */
+
+        @media (max-width: 900px) {
+
+            body.controller-mode .app {
+                grid-template-columns: minmax(230px, 1fr) minmax(300px, 1.3fr) 60px;
+            }
+
+            .sidebar-content {
+                padding: 15px;
+            }
+
+            .controller-audio-content {
+                padding: 15px;
+            }
+
+            .offset-bar {
+                padding: 0 15px;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-content">
+                <h2>LRC 字幕設定</h2>
+                <div class="section">
+                    <div class="section-title" style="
+                        display:flex;
+                        align-items:center;
+                        justify-content:space-between;
+                    ">
+                        <span>
+                            搜尋歌曲
+                        </span>
+                        <div class="custom-lyrics">
+                            <button id="customLrcButton" type="button">
+                                上傳
+                            </button>
+                            <input id="customLrcInput" type="file" accept=".lrc,text/plain" hidden>
+                        </div>
+                    </div>
+                    <div class="search">
+                        <input id="songInput" type="text" placeholder="輸入歌名">
+                        <button id="searchButton" type="button">
+                            搜尋
+                        </button>
+                    </div>
+                    <div id="customLrcName" class="custom-lrc-name"></div>
+                </div>
+                <div class="section">
+                    <div class="section-title">
+                        歌詞選擇
+                    </div>
+                    <div id="lyricResults" class="lyric-results">
+                        <div style="
+                            color:#555;
+                            font-size:13px;
+                        ">
+                            尚未搜尋歌曲
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">
+                        歌詞效果
+                    </div>
+                    <div class="setting">
+                        <select id="effectSelect">
+                            <option value="classic">
+                                經典模式
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">
+                        字體
+                    </div>
+                    <div class="setting">
+                        <select id="fontSelect">
+                            <option value="Arial">
+                                Arial
+                            </option>
+                            <option value="Noto Sans TC">
+                                Noto Sans TC
+                            </option>
+                            <option value="Microsoft JhengHei">
+                                微軟正黑體
+                            </option>
+                            <option value="sans-serif">
+                                Sans Serif
+                            </option>
+                            <option value="serif">
+                                Serif
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">
+                        顏色
+                    </div>
+                    <div class="color-settings">
+                        <div class="color-setting">
+                            <div class="color-setting-label">
+                                歌詞文字
+                            </div>
+                            <input id="colorInput" class="color-input" type="color" value="#7564a6">
+                        </div>
+                        <!-- 底色 -->
+                        <div class="color-setting">
+                            <div class="color-setting-label">
+                                歌詞底色
+                            </div>
+                            <input id="backgroundColorInput" class="color-input" type="color" value="#888888">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =================================================
+                 原本完整模式使用的 YouTube
+                 controller 時隱藏
+                 ================================================= -->
+
+                <div class="section sidebar-youtube-section">
+                    <div class="section-title">
+                        YouTube 音源
+                    </div>
+                    <div class="youtube-control">
+                        <input id="youtubeInput" class="youtube-input" type="text" placeholder="YouTube 網址或影片 ID">
+                        <div class="youtube-actions">
+                            <button id="youtubeLoadButton" type="button">
+                                載入
+                            </button>
+                            <button id="youtubePlayButton" class="play-button" type="button">
+                                ▶
+                            </button>
+                        </div>
+                        <div id="youtubeTime" class="youtube-time">
+                            00:00 / 00:00
+                        </div>
+                        <div id="youtubePlayer" class="youtube-player"></div>
+                    </div>
+                </div>
+                <div id="connectionStatus" class="connection-status">
+                    BroadcastChannel 等待中
+                </div>
+            </div>
+            <div class="sidebar-resizer" id="sidebarResizer"></div>
+        </aside>
+
+        <main class="stage" id="stage">
+
+            <div class="lyrics" id="lyrics">
+
+                <div class="lyrics-track" id="lyricsTrack"></div>
+
+                <div class="empty-lyrics" id="emptyLyrics">
+                    搜尋歌曲後選擇歌詞
+                </div>
+
+                <div class="lyrics-center-fade"></div>
+
+            </div>
+
+            <div class="controller-audio" id="controllerAudio">
+                <div class="controller-audio-header">
+                    <div class="controller-audio-title">
+                        YouTube 音源
+                    </div>
+                </div>
+                <div class="controller-audio-content">
+                    <div class="youtube-control">
+                        <input id="controllerYoutubeInput" class="youtube-input" type="text"
+                            placeholder="YouTube 網址或影片 ID">
+                        <div class="youtube-actions">
+                            <button id="controllerYoutubeLoadButton" type="button">
+                                載入音源
+                            </button>
+                            <button id="controllerYoutubePlayButton" class="play-button" type="button">
+                                ▶
+                            </button>
+                        </div>
+                        <div id="controllerYoutubeTime" class="youtube-time">
+                            00:00 / 00:00
+                        </div>
+                    </div>
+                    <div class="controller-youtube-player" id="controllerYoutubePlayer"></div>
+                    <div class="youtube-info">
+                        <span class="youtube-info-label">
+                            目前音源
+                        </span>
+                        <span id="youtubeVideoInfo" class="youtube-info-value">
+                            尚未載入
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="timeline" id="timeline">
+            <div class="timeline-track"></div>
+            <div class="timeline-progress" id="timelineProgress"></div>
+            <div class="timeline-thumb" id="timelineThumb"></div>
+            <div class="timeline-time" id="timelineTime">
+                00:00
+            </div>
+        </aside>
+    </div>
+
+    <footer class="offset-bar">
+        <div class="play-control">
+            <button id="playButton" class="play-button" type="button">
+                ▶
+            </button>
+            <button id="modeButton" class="mode-button" type="button">
+                同步播放
+            </button>
+            <button id="resetButton" type="button">
+                重置
+            </button>
+        </div>
+        <div class="offset-title">
+            時間偏移
+        </div>
+        <div class="offset-slider">
+            <input id="offsetSlider" class="offset-range" type="range" min="-20" max="20" step="0.1" value="0">
+            <div class="offset-label">
+                <span>-20s</span>
+                <span>0</span>
+                <span>+20s</span>
+            </div>
+        </div>
+        <div id="offsetValue" class="offset-value">
+            0.0s
+        </div>
+    </footer>
+
+    <script>
+
+        const params =
+            new URLSearchParams(
+                window.location.search
+            );
+
+        const pageMode =
+            params.has("controller")
+                ? "controller"
+                : params.has("subtitle")
+                    ? "subtitle"
+                    : "full";
+
+        if (pageMode === "controller") {
+
+            document.body.classList.add(
+                "controller-mode"
+            );
+        }
+
+        if (pageMode === "subtitle") {
+
+            document.body.classList.add(
+                "subtitle-mode"
+            );
+        }
+
+        const BROADCAST_CHANNEL_NAME =
+            "lrc-lyrics-controller";
+
+        const broadcastChannel =
+            "BroadcastChannel" in window
+                ? new BroadcastChannel(
+                    BROADCAST_CHANNEL_NAME
+                )
+                : null;
+
+        let broadcastConnected = false;
+
+        function setBroadcastStatus(
+            connected
+        ) {
+
+            broadcastConnected =
+                connected;
+
+            const element =
+                document.getElementById(
+                    "connectionStatus"
+                );
+
+            if (!element) {
+                return;
+            }
+
+            if (connected) {
+
+                element.textContent =
+                    "BroadcastChannel 已連線";
+
+                element.classList.add(
+                    "connected"
+                );
+
+            } else {
+
+                element.textContent =
+                    "BroadcastChannel 等待中";
+
+                element.classList.remove(
+                    "connected"
+                );
+            }
+        }
+
+        function broadcast(
+            type,
+            payload = {}
+        ) {
+
+            if (!broadcastChannel) {
+                return;
+            }
+
+            broadcastChannel.postMessage({
+                type,
+                ...payload
+            });
+        }
+
+
+        class LRCParser {
+            static parse(text) {
+                const result = [];
+                for (
+                    const line of
+                    text.split(/\r?\n/)
+                ) {
+                    const matches = [
+                        ...line.matchAll(
+                            /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g
+                        )
+                    ];
+
+                    if (!matches.length) {
+                        continue;
+                    }
+
+                    const lyricText =
+                        line
+                            .replace(
+                                /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g,
+                                ""
+                            )
+                            .trim();
+
+                    for (
+                        const match of
+                        matches
+                    ) {
+
+                        const minutes = Number(match[1]);
+                        const seconds = Number(match[2]);
+                        const milliseconds = match[3]? Number(match[3].padEnd(3,"0")): 0;
+
+                        result.push({
+                            time:
+                                minutes * 60 +
+                                seconds +
+                                milliseconds / 1000,
+
+                            text:
+                                lyricText || "♪"
+                        });
+                    }
+                }
+
+                result.sort(
+                    (a, b) =>
+                        a.time - b.time
+                );
+
+                return result;
+            }
+        }
+
+
+        /* =========================================================
+           LRCLIB
+           ========================================================= */
+
+        class LRCLIB {
+            static baseURL =
+                "https://lrclib.net/api";
+
+            static async get(
+                trackName,
+                artistName = ""
+            ) {
+
+                const params =
+                    new URLSearchParams({
+                        track_name: trackName
+                    });
+
+                if (artistName) {
+                    params.set(
+                        "artist_name",
+                        artistName
+                    );
+                }
+
+                const response =
+                    await fetch(
+                        `${this.baseURL}/get?${params}`
+                    );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `/get HTTP ${response.status}`
+                    );
+                }
+                return response.json();
+            }
+
+            static async search(query) {
+                const params =
+                    new URLSearchParams({
+                        q: query
+                    });
+
+                const response =
+                    await fetch(
+                        `${this.baseURL}/search?${params}`
+                    );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `/search HTTP ${response.status}`
+                    );
+                }
+
+                return response.json();
+            }
+        }
+
+
+        /* =========================================================
+           LRC Player
+           ========================================================= */
+
+        class LRCPlayer {
+            constructor() {
+                this.lyrics = [];
+                this.currentTime = 0;
+                this.offset = 0;
+                this.playing = false;
+                this.animationFrame = null;
+                this.lastFrame = 0;
+                this.lineHeight = 52;
+                this.track = document.getElementById("lyricsTrack");
+                this.emptyLyrics = document.getElementById("emptyLyrics");
+                this.slots = [];
+                this.render();
+            }
+
+            load(
+                lrcText,
+                shouldBroadcast = true
+            ) {
+
+                this.pause(false);
+                this.lyrics =LRCParser.parse(lrcText);
+                this.currentTime = 0;
+                this.render();
+                this.update();
+                updatePlayButton();
+
+                if (
+                    shouldBroadcast &&
+                    pageMode !== "subtitle"
+                ) {
+                    broadcast("lyrics-load",{lrcText});
+                }
+            }
+
+            render() {
+                if (!this.track) {
+                    return;
+                }
+
+                this.track.innerHTML = "";
+                this.slots = [];
+                if (!this.lyrics.length) {
+                    if (this.emptyLyrics) {
+                        this.emptyLyrics.style.display =
+                            "block";
+                    }
+                    return;
+                }
+
+                if (this.emptyLyrics) {
+                    this.emptyLyrics.style.display =
+                        "none";
+                }
+
+                for ( let i = 0; i < this.lyrics.length; i++) {
+                    const element = document.createElement("div");
+                    element.className = "lyric-line";
+                    const text = this.lyrics[i].text;
+                    element.innerHTML = `
+                <span class="lyric-text">
+                    <span class="lyric-base">
+                        ${escapeHTML(text)}
+                    </span>
+                    <span class="lyric-fill">
+                        ${escapeHTML(text)}
+                    </span>
+                </span>
+            `;
+
+                    element.style.top = `${i * this.lineHeight}px`;
+                    this.track.appendChild(element);
+                    this.slots.push(element);
+                }
+
+                this.track.style.height =`${this.lyrics.length * this.lineHeight}px`;
+            }
+
+            setTime(
+                time,
+                shouldBroadcast = true
+            ) {
+
+                if (!this.lyrics.length) {
+                    return;
+                }
+
+                const duration =
+                    this.getDuration();
+
+                this.currentTime =
+                    Math.max(
+                        0,
+                        Math.min(
+                            duration,
+                            Number(time) || 0
+                        )
+                    );
+
+                this.update();
+
+                if (
+                    shouldBroadcast &&
+                    pageMode !== "subtitle"
+                ) {
+
+                    broadcast(
+                        "time",
+                        {
+                            time:
+                                this.currentTime
+                        }
+                    );
+                }
+            }
+
+            setOffset(
+                value,
+                shouldBroadcast = true
+            ) {
+
+                this.offset =
+                    Number(value) || 0;
+                const duration =
+                    this.getDuration();
+
+                this.currentTime =
+                    Math.max(
+                        0,
+                        Math.min(
+                            duration,
+                            this.currentTime
+                        )
+                    );
+                this.update();
+
+                if (
+                    shouldBroadcast &&
+                    pageMode !== "subtitle"
+                ) {
+
+                    broadcast(
+                        "offset",
+                        {
+                            offset:
+                                this.offset
+                        }
+                    );
+                }
+            }
+
+            getDuration() {
+
+                if (!this.lyrics.length) {
+                    return 0;
+                }
+
+                return Math.max(
+                    0,
+                    this.lyrics[
+                        this.lyrics.length - 1
+                    ].time - this.offset
+                );
+            }
+
+            getCurrentIndex(time) {
+
+                const adjustedTime =
+                    time +
+                    this.offset;
+
+                let index = -1;
+
+                for (
+                    let i = 0;
+                    i < this.lyrics.length;
+                    i++
+                ) {
+
+                    if (
+                        this.lyrics[i].time <=
+                        adjustedTime
+                    ) {
+
+                        index = i;
+
+                    } else {
+
+                        break;
+                    }
+                }
+
+                return index;
+            }
+
+            getScrollPosition() {
+
+                if (!this.lyrics.length) {
+                    return 0;
+                }
+
+                const adjustedTime =
+                    this.currentTime +
+                    this.offset;
+
+                if (
+                    adjustedTime <
+                    this.lyrics[0].time
+                ) {
+
+                    return 0;
+                }
+
+                const currentIndex =
+                    this.getCurrentIndex(
+                        this.currentTime
+                    );
+
+                if (currentIndex < 0) {
+                    return 0;
+                }
+
+                if (
+                    currentIndex >=
+                    this.lyrics.length - 1
+                ) {
+
+                    return (
+                        currentIndex *
+                        this.lineHeight
+                    );
+                }
+
+                const current =
+                    this.lyrics[
+                    currentIndex
+                    ];
+
+                const next =
+                    this.lyrics[
+                    currentIndex + 1
+                    ];
+
+                const duration =
+                    next.time -
+                    current.time;
+
+                let progress = 0;
+
+                if (duration > 0) {
+
+                    progress =
+                        (
+                            adjustedTime -
+                            current.time
+                        ) /
+                        duration;
+
+                    progress =
+                        Math.max(
+                            0,
+                            Math.min(
+                                1,
+                                progress
+                            )
+                        );
+                }
+
+                return (
+                    (
+                        currentIndex +
+                        progress
+                    ) *
+                    this.lineHeight
+                );
+            }
+
+            update() {
+
+                if (!this.lyrics.length) {
+                    return;
+                }
+
+                const stage =
+                    document.getElementById(
+                        "lyrics"
+                    );
+
+                if (!stage) {
+                    return;
+                }
+
+                const center =
+                    stage.clientHeight / 2;
+
+                const scrollPosition =
+                    this.getScrollPosition();
+
+                const translateY =
+                    center -
+                    this.lineHeight / 2 -
+                    scrollPosition;
+
+                this.track.style.transform =
+                    `translateY(${translateY}px)`;
+
+                this.updateLineStyles(
+                    scrollPosition
+                );
+
+                this.updateTimeline();
+            }
+
+            updateLineStyles(
+                scrollPosition
+            ) {
+
+                const colorInput =
+                    document.getElementById(
+                        "colorInput"
+                    );
+
+                const color =
+                    colorInput
+                        ? colorInput.value
+                        : "#7564a6";
+
+                const currentIndex =
+                    this.getCurrentIndex(
+                        this.currentTime
+                    );
+
+                const stage =
+                    document.getElementById(
+                        "stage"
+                    );
+                const backgroundColorInput =
+                    document.getElementById(
+                        "backgroundColorInput"
+                    );
+
+                const baseColor =
+                    backgroundColorInput
+                        ? backgroundColorInput.value
+                        : "#111111";
+
+                for (
+                    let i = 0;
+                    i < this.slots.length;
+                    i++
+                ) {
+
+                    const element =
+                        this.slots[i];
+
+                    const position =
+                        i *
+                        this.lineHeight -
+                        scrollPosition;
+
+                    const distance =
+                        Math.abs(
+                            position /
+                            this.lineHeight
+                        );
+
+                    const opacity =
+                        Math.max(
+                            0.08,
+                            1 -
+                            distance *
+                            0.16
+                        );
+
+                    const blur =
+                        Math.min(
+                            3,
+                            distance *
+                            0.45
+                        );
+
+                    const isCurrent =
+                        i === currentIndex;
+
+                    element.style.opacity =
+                        opacity;
+
+                    element.style.filter =
+                        `blur(${blur}px)`;
+
+                    const base =
+                        element.querySelector(
+                            ".lyric-base"
+                        );
+
+                    const fill =
+                        element.querySelector(
+                            ".lyric-fill"
+                        );
+
+                    if (isCurrent) {
+
+                        element.style.fontSize =
+                            "30px";
+
+                        element.style.fontWeight =
+                            "700";
+
+                        base.style.color =
+                            baseColor;
+
+                        fill.style.color =
+                            color;
+
+                        const current =
+                            this.lyrics[
+                            currentIndex
+                            ];
+
+                        const next =
+                            this.lyrics[
+                            currentIndex + 1
+                            ];
+
+                        let progress = 1;
+
+                        if (next) {
+
+                            const duration =
+                                next.time -
+                                current.time;
+
+                            if (duration > 0) {
+
+                                progress =
+                                    (
+                                        this.currentTime +
+                                        this.offset -
+                                        current.time
+                                    ) /
+                                    duration;
+
+                                progress =
+                                    Math.max(
+                                        0,
+                                        Math.min(
+                                            1,
+                                            progress
+                                        )
+                                    );
+                            }
+                        }
+
+                        fill.style.width =
+                            `${progress * 100}%`;
+
+                    } else {
+
+                        element.style.fontSize =
+                            "21px";
+
+                        element.style.fontWeight =
+                            "400";
+
+                        fill.style.width =
+                            "0%";
+
+                        base.style.color =
+                            baseColor;
+                    }
+                }
+            }
+
+            play(
+                shouldBroadcast = true
+            ) {
+
+                if (!this.lyrics.length) {
+                    return;
+                }
+
+                if (this.playing) {
+                    return;
+                }
+
+                if (
+                    this.currentTime >=
+                    this.getDuration()
+                ) {
+
+                    this.currentTime = 0;
+                }
+
+                this.playing = true;
+
+                this.lastFrame =
+                    performance.now();
+
+                this.tick();
+
+                updatePlayButton();
+
+                if (
+                    shouldBroadcast &&
+                    pageMode !== "subtitle"
+                ) {
+
+                    broadcast(
+                        "play"
+                    );
+                }
+            }
+
+            pause(
+                shouldBroadcast = true
+            ) {
+
+                this.playing = false;
+
+                if (this.animationFrame) {
+
+                    cancelAnimationFrame(
+                        this.animationFrame
+                    );
+
+                    this.animationFrame =
+                        null;
+                }
+
+                updatePlayButton();
+
+                if (
+                    shouldBroadcast &&
+                    pageMode !== "subtitle"
+                ) {
+
+                    broadcast(
+                        "pause"
+                    );
+                }
+            }
+
+            tick() {
+
+                if (!this.playing) {
+                    return;
+                }
+
+                const now =
+                    performance.now();
+
+                const delta =
+                    (
+                        now -
+                        this.lastFrame
+                    ) / 1000;
+
+                this.lastFrame =
+                    now;
+
+                this.currentTime +=
+                    delta;
+
+                const duration =
+                    this.getDuration();
+
+                if (
+                    this.currentTime >=
+                    duration
+                ) {
+
+                    this.currentTime =
+                        duration;
+
+                    this.update();
+
+                    this.pause();
+
+                    return;
+                }
+
+                this.update();
+
+                this.animationFrame =
+                    requestAnimationFrame(
+                        () =>
+                            this.tick()
+                    );
+            }
+
+            updateTimeline() {
+
+                const timeline =
+                    document.getElementById(
+                        "timeline"
+                    );
+
+                const thumb =
+                    document.getElementById(
+                        "timelineThumb"
+                    );
+
+                const progress =
+                    document.getElementById(
+                        "timelineProgress"
+                    );
+
+                const timeElement =
+                    document.getElementById(
+                        "timelineTime"
+                    );
+
+                if (
+                    !timeline ||
+                    !thumb ||
+                    !progress ||
+                    !timeElement
+                ) {
+
+                    return;
+                }
+
+                const duration =
+                    this.getDuration();
+
+                const height =
+                    timeline.clientHeight;
+
+                const usableHeight =
+                    Math.max(
+                        1,
+                        height - 60
+                    );
+
+                const ratio =
+                    duration > 0
+                        ? this.currentTime /
+                        duration
+                        : 0;
+
+                const top =
+                    30 +
+                    ratio *
+                    usableHeight;
+
+                thumb.style.top =
+                    `${top}px`;
+
+                progress.style.height =
+                    `${Math.max(
+                        0,
+                        top - 30
+                    )}px`;
+
+                timeElement.style.top =
+                    `${top}px`;
+
+                timeElement.textContent =
+                    this.formatTime(
+                        this.currentTime
+                    );
+            }
+
+            formatTime(seconds) {
+
+                seconds =
+                    Math.max(
+                        0,
+                        seconds
+                    );
+
+                const minutes =
+                    Math.floor(
+                        seconds / 60
+                    );
+
+                const secs =
+                    Math.floor(
+                        seconds % 60
+                    );
+
+                return (
+                    `${String(
+                        minutes
+                    ).padStart(2, "0")}:` +
+                    `${String(
+                        secs
+                    ).padStart(2, "0")}`
+                );
+            }
+        }
+
+
+        /* =========================================================
+           初始化 Player
+           ========================================================= */
+
+        const player =
+            new LRCPlayer();
+
+
+        /* =========================================================
+           背景設定
+           ---------------------------------------------------------
+           舊有黑白主題仍保留。
+           新增「自訂底色」。
+           ========================================================= */
+
+        const stage =
+            document.getElementById(
+                "stage"
+            );
+
+
+        const backgroundColorInput =
+            document.getElementById(
+                "backgroundColorInput"
+            );
+
+
+        /* =========================================================
+           自訂底色
+           ========================================================= */
+
+        if (backgroundColorInput) {
+
+            backgroundColorInput.addEventListener(
+                "input",
+                event => {
+
+                    const color =
+                        event.target.value;
+
+                    /*
+                     * 自訂底色時不再強制黑白主題。
+                     * 直接修改字幕背景。
+                     */
+                    stage.style.setProperty(
+                        "--lyrics-base-color",
+                        color
+                    );
+
+                    /*
+                     * 根據底色亮度決定一般文字顏色。
+                     */
+
+                    player.update();
+
+                    broadcast(
+                        "background-color",
+                        {
+                            color
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           播放模式
+           ========================================================= */
+
+        let playbackMode =
+            "sync";
+
+        const modeButton =
+            document.getElementById(
+                "modeButton"
+            );
+
+
+        function updatePlaybackModeUI() {
+
+            if (!modeButton) {
+                return;
+            }
+
+            modeButton.textContent =
+                playbackMode === "sync"
+                    ? "同步播放"
+                    : "歌詞播放";
+
+            updatePlayButton();
+        }
+
+
+        if (modeButton) {
+
+            modeButton.addEventListener(
+                "click",
+                () => {
+
+                    player.pause();
+
+                    if (
+                        playbackMode ===
+                        "sync"
+                    ) {
+
+                        playbackMode =
+                            "lyrics";
+
+                    } else {
+
+                        playbackMode =
+                            "sync";
+                    }
+
+                    updatePlaybackModeUI();
+
+                    broadcast(
+                        "playback-mode",
+                        {
+                            mode:
+                                playbackMode
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           搜尋
+           ========================================================= */
+
+        const songInput =
+            document.getElementById(
+                "songInput"
+            );
+
+        const searchButton =
+            document.getElementById(
+                "searchButton"
+            );
+
+        const lyricResults =
+            document.getElementById(
+                "lyricResults"
+            );
+
+
+        async function searchLyrics() {
+
+            const query =
+                songInput.value.trim();
+
+            if (!query) {
+                return;
+            }
+
+            searchButton.disabled =
+                true;
+
+            lyricResults.innerHTML = `
+        <div style="color:#666;">
+            搜尋中...
+        </div>
+    `;
+
+            try {
+
+                try {
+
+                    const result =
+                        await LRCLIB.get(
+                            query
+                        );
+
+                    if (
+                        result &&
+                        result.syncedLyrics
+                    ) {
+
+                        showLyricResults([
+                            result
+                        ]);
+
+                        return;
+                    }
+
+                } catch {
+                }
+
+                const results =
+                    await LRCLIB.search(
+                        query
+                    );
+
+                showLyricResults(
+                    results
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                lyricResults.innerHTML = `
+            <div style="color:#777;">
+                搜尋失敗
+            </div>
+        `;
+
+            } finally {
+
+                searchButton.disabled =
+                    false;
+            }
+        }
+
+
+        if (searchButton) {
+
+            searchButton.addEventListener(
+                "click",
+                searchLyrics
+            );
+        }
+
+
+        if (songInput) {
+
+            songInput.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        searchLyrics();
+                    }
+                }
+            );
+        }
+
+
+        /* =========================================================
+           自訂 LRC
+           ========================================================= */
+
+        const customLrcButton =
+            document.getElementById(
+                "customLrcButton"
+            );
+
+        const customLrcInput =
+            document.getElementById(
+                "customLrcInput"
+            );
+
+        const customLrcName =
+            document.getElementById(
+                "customLrcName"
+            );
+
+
+        if (customLrcButton) {
+
+            customLrcButton.addEventListener(
+                "click",
+                () => {
+
+                    customLrcInput.click();
+                }
+            );
+        }
+
+
+        if (customLrcInput) {
+
+            customLrcInput.addEventListener(
+                "change",
+                async event => {
+
+                    const file =
+                        event.target.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+                    try {
+
+                        const lrcText =
+                            await file.text();
+
+                        const lyrics =
+                            LRCParser.parse(
+                                lrcText
+                            );
+
+                        if (!lyrics.length) {
+
+                            customLrcName.textContent =
+                                "無效的 LRC 檔案";
+
+                            return;
+                        }
+
+                        player.load(
+                            lrcText
+                        );
+
+                        customLrcName.textContent =
+                            file.name;
+
+                        document
+                            .querySelectorAll(
+                                ".lyric-result"
+                            )
+                            .forEach(
+                                item =>
+                                    item.classList.remove(
+                                        "active"
+                                    )
+                            );
+
+                    } catch (error) {
+
+                        console.error(
+                            "LRC 讀取失敗：",
+                            error
+                        );
+
+                        customLrcName.textContent =
+                            "LRC 讀取失敗";
+                    }
+
+                    event.target.value =
+                        "";
+                }
+            );
+        }
+
+
+        /* =========================================================
+           顯示歌詞搜尋結果
+           ========================================================= */
+
+        function showLyricResults(
+            results
+        ) {
+
+            lyricResults.innerHTML =
+                "";
+
+            const validResults =
+                results.filter(
+                    item =>
+                        item.syncedLyrics
+                );
+
+            if (!validResults.length) {
+
+                lyricResults.innerHTML = `
+            <div style="color:#666;">
+                找不到同步歌詞
+            </div>
+        `;
+
+                return;
+            }
+
+            validResults.forEach(
+                item => {
+
+                    const element =
+                        document.createElement(
+                            "div"
+                        );
+
+                    element.className =
+                        "lyric-result";
+
+                    element.innerHTML = `
+                <div class="lyric-result-title">
+                    ${escapeHTML(
+                        item.trackName ||
+                        "Unknown"
+                    )}
+                </div>
+
+                <div class="lyric-result-artist">
+                    ${escapeHTML(
+                        item.artistName ||
+                        "Unknown"
+                    )}
+                </div>
+            `;
+
+                    element.addEventListener(
+                        "click",
+                        () => {
+
+                            document
+                                .querySelectorAll(
+                                    ".lyric-result"
+                                )
+                                .forEach(
+                                    item =>
+                                        item.classList.remove(
+                                            "active"
+                                        )
+                                );
+
+                            element.classList.add(
+                                "active"
+                            );
+
+                            player.load(
+                                item.syncedLyrics
+                            );
+
+                            if (
+                                playbackMode ===
+                                "sync" &&
+                                youtubePlayer &&
+                                youtubeReady &&
+                                youtubeHasVideo
+                            ) {
+
+                                player.setTime(
+                                    youtubePlayer.getCurrentTime()
+                                );
+                            }
+                        }
+                    );
+
+                    lyricResults.appendChild(
+                        element
+                    );
+
+                    if (
+                        validResults.length ===
+                        1
+                    ) {
+
+                        element.click();
+                    }
+                }
+            );
+        }
+
+
+        /* =========================================================
+           HTML Escape
+           ========================================================= */
+
+        function escapeHTML(value) {
+
+            return String(value)
+                .replaceAll(
+                    "&",
+                    "&amp;"
+                )
+                .replaceAll(
+                    "<",
+                    "&lt;"
+                )
+                .replaceAll(
+                    ">",
+                    "&gt;"
+                )
+                .replaceAll(
+                    '"',
+                    "&quot;"
+                )
+                .replaceAll(
+                    "'",
+                    "&#039;"
+                );
+        }
+
+
+        /* =========================================================
+           Hex → RGB
+           ========================================================= */
+
+        function hexToRGB(hex) {
+
+            const match =
+                /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i
+                    .exec(hex);
+
+            if (!match) {
+                return null;
+            }
+
+            return {
+                r: parseInt(
+                    match[1],
+                    16
+                ),
+                g: parseInt(
+                    match[2],
+                    16
+                ),
+                b: parseInt(
+                    match[3],
+                    16
+                )
+            };
+        }
+
+
+        /* =========================================================
+           字體
+           ========================================================= */
+
+        const fontSelect =
+            document.getElementById(
+                "fontSelect"
+            );
+
+
+        if (fontSelect) {
+
+            fontSelect.addEventListener(
+                "change",
+                event => {
+
+                    document.getElementById(
+                        "lyrics"
+                    ).style.fontFamily =
+                        event.target.value;
+
+                    broadcast(
+                        "font",
+                        {
+                            font:
+                                event.target.value
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           文字顏色
+           ========================================================= */
+
+        const colorInput =
+            document.getElementById(
+                "colorInput"
+            );
+
+
+        if (colorInput) {
+
+            colorInput.addEventListener(
+                "input",
+                () => {
+
+                    player.update();
+
+                    broadcast(
+                        "color",
+                        {
+                            color:
+                                colorInput.value
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           歌詞效果
+           ========================================================= */
+
+        const effectSelect =
+            document.getElementById(
+                "effectSelect"
+            );
+
+
+        if (effectSelect) {
+
+            effectSelect.addEventListener(
+                "change",
+                () => {
+
+                    broadcast(
+                        "effect",
+                        {
+                            effect:
+                                effectSelect.value
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           時間偏移
+           ========================================================= */
+
+        const offsetSlider =
+            document.getElementById(
+                "offsetSlider"
+            );
+
+        const offsetValue =
+            document.getElementById(
+                "offsetValue"
+            );
+
+
+        if (offsetSlider) {
+
+            offsetSlider.addEventListener(
+                "input",
+                event => {
+
+                    const value =
+                        Number(
+                            event.target.value
+                        );
+
+                    player.setOffset(
+                        value
+                    );
+
+                    offsetValue.textContent =
+                        `${value > 0
+                            ? "+"
+                            : ""
+                        }${value.toFixed(1)}s`;
+                }
+            );
+        }
+
+
+        /* =========================================================
+           時間軸
+           ========================================================= */
+
+        const timeline =
+            document.getElementById(
+                "timeline"
+            );
+
+        const timelineThumb =
+            document.getElementById(
+                "timelineThumb"
+            );
+
+        let draggingTimeline =
+            false;
+
+
+        function updateTimeFromPointer(
+            clientY
+        ) {
+
+            if (!player.lyrics.length) {
+                return;
+            }
+
+            const rect =
+                timeline.getBoundingClientRect();
+
+            const height =
+                rect.height;
+
+            const usableHeight =
+                Math.max(
+                    1,
+                    height - 60
+                );
+
+            const y =
+                Math.max(
+                    30,
+                    Math.min(
+                        height - 30,
+                        clientY -
+                        rect.top
+                    )
+                );
+
+            const ratio =
+                (y - 30) /
+                usableHeight;
+
+            const time =
+                player.getDuration() *
+                ratio;
+
+            player.setTime(
+                time
+            );
+
+            if (
+                playbackMode === "sync" &&
+                youtubePlayer &&
+                youtubeReady &&
+                youtubeHasVideo
+            ) {
+
+                youtubePlayer.seekTo(
+                    time,
+                    true
+                );
+            }
+        }
+
+
+        if (timelineThumb) {
+
+            timelineThumb.addEventListener(
+                "pointerdown",
+                event => {
+
+                    draggingTimeline =
+                        true;
+
+                    timelineThumb.setPointerCapture(
+                        event.pointerId
+                    );
+
+                    event.preventDefault();
+                }
+            );
+
+            timelineThumb.addEventListener(
+                "pointermove",
+                event => {
+
+                    if (!draggingTimeline) {
+                        return;
+                    }
+
+                    updateTimeFromPointer(
+                        event.clientY
+                    );
+                }
+            );
+
+            timelineThumb.addEventListener(
+                "pointerup",
+                event => {
+
+                    draggingTimeline =
+                        false;
+
+                    timelineThumb.releasePointerCapture?.(
+                        event.pointerId
+                    );
+                }
+            );
+        }
+
+
+        if (timeline) {
+
+            timeline.addEventListener(
+                "pointerdown",
+                event => {
+
+                    if (
+                        event.target ===
+                        timelineThumb
+                    ) {
+
+                        return;
+                    }
+
+                    updateTimeFromPointer(
+                        event.clientY
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           主播放按鈕
+           ========================================================= */
+
+        const playButton =
+            document.getElementById(
+                "playButton"
+            );
+
+
+        if (playButton) {
+
+            playButton.addEventListener(
+                "click",
+                () => {
+
+                    if (
+                        playbackMode ===
+                        "sync"
+                    ) {
+
+                        if (
+                            youtubePlayer &&
+                            youtubeReady &&
+                            youtubeHasVideo
+                        ) {
+
+                            const state =
+                                youtubePlayer.getPlayerState();
+
+                            if (
+                                state ===
+                                YT.PlayerState.PLAYING
+                            ) {
+
+                                youtubePlayer.pauseVideo();
+
+                            } else {
+
+                                const currentTime =
+                                    youtubePlayer.getCurrentTime();
+
+                                if (
+                                    Number.isFinite(
+                                        currentTime
+                                    )
+                                ) {
+
+                                    player.setTime(
+                                        currentTime
+                                    );
+                                }
+
+                                youtubePlayer.playVideo();
+                            }
+
+                            return;
+                        }
+
+                        if (player.playing) {
+
+                            player.pause();
+
+                        } else {
+
+                            player.play();
+                        }
+
+                        updatePlayButton();
+
+                        return;
+                    }
+
+                    if (player.playing) {
+
+                        player.pause();
+
+                    } else {
+
+                        player.play();
+                    }
+
+                    updatePlayButton();
+                }
+            );
+        }
+
+
+        /* =========================================================
+           播放按鈕 UI
+           ========================================================= */
+
+        function updatePlayButton() {
+
+            if (!playButton) {
+                return;
+            }
+
+            if (
+                playbackMode ===
+                "lyrics"
+            ) {
+
+                playButton.textContent =
+                    player.playing
+                        ? "⏸"
+                        : "▶";
+
+                updateControllerYouTubeButton();
+
+                return;
+            }
+
+            if (
+                youtubePlayer &&
+                youtubeReady &&
+                youtubeHasVideo
+            ) {
+
+                const state =
+                    youtubePlayer.getPlayerState();
+
+                playButton.textContent =
+                    state ===
+                        YT.PlayerState.PLAYING
+                        ? "⏸"
+                        : "▶";
+
+            } else {
+
+                playButton.textContent =
+                    player.playing
+                        ? "⏸"
+                        : "▶";
+            }
+
+            updateControllerYouTubeButton();
+        }
+
+
+        /* =========================================================
+           重置
+           ========================================================= */
+
+        const resetButton =
+            document.getElementById(
+                "resetButton"
+            );
+
+
+        if (resetButton) {
+
+            resetButton.addEventListener(
+                "click",
+                () => {
+
+                    player.pause();
+
+                    player.setTime(
+                        0
+                    );
+
+                    if (
+                        playbackMode === "sync" &&
+                        youtubePlayer &&
+                        youtubeReady &&
+                        youtubeHasVideo
+                    ) {
+
+                        youtubePlayer.seekTo(
+                            0,
+                            true
+                        );
+                    }
+
+                    updateYouTubeTime();
+
+                    updatePlayButton();
+
+                    broadcast(
+                        "reset"
+                    );
+                }
+            );
+        }
+
+
+        /* =========================================================
+           左側欄位縮放
+           ========================================================= */
+
+        const sidebar =
+            document.getElementById(
+                "sidebar"
+            );
+
+        const sidebarResizer =
+            document.getElementById(
+                "sidebarResizer"
+            );
+
+        const app =
+            document.querySelector(
+                ".app"
+            );
+
+        let resizingSidebar =
+            false;
+
+
+        if (sidebarResizer) {
+
+            sidebarResizer.addEventListener(
+                "pointerdown",
+                event => {
+
+                    resizingSidebar =
+                        true;
+
+                    sidebarResizer.setPointerCapture(
+                        event.pointerId
+                    );
+
+                    event.preventDefault();
+                }
+            );
+
+            sidebarResizer.addEventListener(
+                "pointermove",
+                event => {
+
+                    if (!resizingSidebar) {
+                        return;
+                    }
+
+                    const rect =
+                        app.getBoundingClientRect();
+
+                    let width =
+                        event.clientX -
+                        rect.left;
+
+                    width =
+                        Math.max(
+                            180,
+                            Math.min(
+                                500,
+                                width
+                            )
+                        );
+
+                    /*
+                     * controller：
+                     * 左側欄位可以調整，
+                     * 中間 YouTube 會自動吃剩餘空間。
+                     */
+                    if (
+                        pageMode ===
+                        "controller"
+                    ) {
+
+                        app.style.gridTemplateColumns =
+                            `${width}px minmax(420px, 1fr) 70px`;
+
+                    } else {
+
+                        /*
+                         * 原本完整模式保持原邏輯。
+                         */
+                        app.style.gridTemplateColumns =
+                            `${width}px minmax(0, 1fr) 70px`;
+                    }
+
+                    player.update();
+                }
+            );
+
+            sidebarResizer.addEventListener(
+                "pointerup",
+                () => {
+
+                    resizingSidebar =
+                        false;
+                }
+            );
+
+            sidebarResizer.addEventListener(
+                "pointercancel",
+                () => {
+
+                    resizingSidebar =
+                        false;
+                }
+            );
+        }
+
+
+        /* =========================================================
+           視窗大小
+           ========================================================= */
+
+        window.addEventListener(
+            "resize",
+            () => {
+
+                player.update();
+            }
+        );
+
+
+        /* =========================================================
+           YouTube Player
+           ========================================================= */
+
+        let youtubePlayer = null;
+
+        let youtubeReady = false;
+
+        let youtubeHasVideo = false;
+
+        let youtubeSyncTimer = null;
+
+        let youtubePlayerCreated = false;
+
+
+        /* =========================================================
+           Controller YouTube DOM
+           ========================================================= */
+
+        const controllerYoutubeInput =
+            document.getElementById(
+                "controllerYoutubeInput"
+            );
+
+        const controllerYoutubeLoadButton =
+            document.getElementById(
+                "controllerYoutubeLoadButton"
+            );
+
+        const controllerYoutubePlayButton =
+            document.getElementById(
+                "controllerYoutubePlayButton"
+            );
+
+        const controllerYoutubeTime =
+            document.getElementById(
+                "controllerYoutubeTime"
+            );
+
+        const youtubeVideoInfo =
+            document.getElementById(
+                "youtubeVideoInfo"
+            );
+
+
+        /* =========================================================
+           建立 YouTube Player
+           ---------------------------------------------------------
+           使用 controller 專用的播放器容器。
+           ========================================================= */
+
+        function createYouTubePlayer() {
+
+            if (youtubePlayerCreated) {
+                return;
+            }
+
+            if (
+                typeof YT === "undefined" ||
+                typeof YT.Player === "undefined"
+            ) {
+
+                return;
+            }
+
+            youtubePlayerCreated =
+                true;
+
+            /*
+             * controller 和 full 都使用同一個
+             * YouTube Player。
+             *
+             * full 模式：
+             * #youtubePlayer
+             *
+             * controller：
+             * #controllerYoutubePlayer
+             */
+            const target =
+                pageMode === "controller"
+                    ? "controllerYoutubePlayer"
+                    : "youtubePlayer";
+
+            youtubePlayer =
+                new YT.Player(
+                    target,
+                    {
+                        width: "100%",
+                        height: "100%",
+
+                        playerVars: {
+
+                            playsinline: 1,
+
+                            controls: 1,
+
+                            rel: 0,
+
+                            origin:
+                                window.location.origin
+                        },
+
+                        events: {
+
+                            onReady:
+                                onYouTubeReady,
+
+                            onStateChange:
+                                onYouTubeStateChange,
+
+                            onError:
+                                onYouTubeError
+                        }
+                    }
+                );
+        }
+
+
+        window.onYouTubeIframeAPIReady =
+            () => {
+
+                createYouTubePlayer();
+            };
+
+
+        function onYouTubeReady() {
+
+            youtubeReady =
+                true;
+
+            updatePlayButton();
+        }
+
+
+        function onYouTubeError(
+            event
+        ) {
+
+            console.error(
+                "YouTube Player Error:",
+                event.data
+            );
+
+            youtubeHasVideo =
+                false;
+
+            stopYouTubeSync();
+
+            updatePlayButton();
+        }
+
+
+        function onYouTubeStateChange(
+            event
+        ) {
+
+            if (
+                event.data ===
+                YT.PlayerState.PLAYING
+            ) {
+
+                youtubeHasVideo =
+                    true;
+
+                if (
+                    playbackMode ===
+                    "sync"
+                ) {
+
+                    startYouTubeSync();
+
+                } else {
+
+                    stopYouTubeSync();
+                }
+
+                broadcast(
+                    "youtube-state",
+                    {
+                        state:
+                            "playing"
+                    }
+                );
+
+                updatePlayButton();
+
+                return;
+            }
+
+            if (
+                event.data ===
+                YT.PlayerState.PAUSED
+            ) {
+
+                stopYouTubeSync();
+
+                if (
+                    playbackMode ===
+                    "sync"
+                ) {
+
+                    player.pause();
+                }
+
+                broadcast(
+                    "youtube-state",
+                    {
+                        state:
+                            "paused"
+                    }
+                );
+
+                updatePlayButton();
+
+                return;
+            }
+
+            if (
+                event.data ===
+                YT.PlayerState.ENDED
+            ) {
+
+                stopYouTubeSync();
+
+                if (
+                    playbackMode ===
+                    "sync"
+                ) {
+
+                    player.pause();
+                }
+
+                broadcast(
+                    "youtube-state",
+                    {
+                        state:
+                            "ended"
+                    }
+                );
+
+                updatePlayButton();
+
+                return;
+            }
+
+            if (
+                event.data ===
+                YT.PlayerState.CUED
+            ) {
+
+                youtubeHasVideo =
+                    true;
+
+                updateYouTubeTime();
+
+                if (
+                    playbackMode ===
+                    "sync"
+                ) {
+
+                    player.setTime(
+                        0
+                    );
+                }
+
+                updatePlayButton();
+            }
+        }
+
+
+        /* =========================================================
+           YouTube 同步
+           ========================================================= */
+
+        function startYouTubeSync() {
+
+            stopYouTubeSync();
+
+            if (
+                playbackMode !==
+                "sync"
+            ) {
+
+                return;
+            }
+
+            youtubeSyncTimer =
+                setInterval(
+                    syncYouTubeTime,
+                    30
+                );
+
+            syncYouTubeTime();
+        }
+
+
+        function stopYouTubeSync() {
+
+            if (youtubeSyncTimer) {
+
+                clearInterval(
+                    youtubeSyncTimer
+                );
+
+                youtubeSyncTimer =
+                    null;
+            }
+        }
+
+
+        function syncYouTubeTime() {
+
+            if (
+                playbackMode !==
+                "sync"
+            ) {
+
+                stopYouTubeSync();
+
+                return;
+            }
+
+            if (
+                !youtubePlayer ||
+                !youtubeReady ||
+                !youtubeHasVideo
+            ) {
+
+                return;
+            }
+
+            const currentTime =
+                youtubePlayer.getCurrentTime();
+
+            if (
+                !Number.isFinite(
+                    currentTime
+                )
+            ) {
+
+                return;
+            }
+
+            player.setTime(
+                currentTime
+            );
+
+            updateYouTubeTime();
+        }
+
+
+        /* =========================================================
+           YouTube 時間
+           ========================================================= */
+
+        function updateYouTubeTime() {
+
+            if (
+                !youtubePlayer ||
+                !youtubeReady
+            ) {
+
+                return;
+            }
+
+            const current =
+                youtubePlayer.getCurrentTime();
+
+            const duration =
+                youtubePlayer.getDuration();
+
+            if (
+                !Number.isFinite(current) ||
+                !Number.isFinite(duration)
+            ) {
+
+                return;
+            }
+
+            const text =
+                `${formatYouTubeTime(current)} / ${formatYouTubeTime(duration)}`;
+
+            const element =
+                document.getElementById(
+                    "youtubeTime"
+                );
+
+            if (element) {
+
+                element.textContent =
+                    text;
+            }
+
+            if (controllerYoutubeTime) {
+
+                controllerYoutubeTime.textContent =
+                    text;
+            }
+        }
+
+
+        function formatYouTubeTime(
+            seconds
+        ) {
+
+            seconds =
+                Math.max(
+                    0,
+                    Math.floor(seconds)
+                );
+
+            const minutes =
+                Math.floor(
+                    seconds / 60
+                );
+
+            const secs =
+                seconds % 60;
+
+            return (
+                `${String(
+                    minutes
+                ).padStart(2, "0")}:` +
+                `${String(
+                    secs
+                ).padStart(2, "0")}`
+            );
+        }
+
+
+        /* =========================================================
+           YouTube Video ID
+           ========================================================= */
+
+        function getYouTubeVideoId(
+            value
+        ) {
+
+            const input =
+                value.trim();
+
+            if (!input) {
+                return null;
+            }
+
+            if (
+                /^[a-zA-Z0-9_-]{11}$/.test(
+                    input
+                )
+            ) {
+
+                return input;
+            }
+
+            try {
+
+                const url =
+                    new URL(input);
+
+                const hostname =
+                    url.hostname.toLowerCase();
+
+                if (
+                    hostname ===
+                    "www.youtube.com" ||
+                    hostname ===
+                    "youtube.com" ||
+                    hostname ===
+                    "m.youtube.com"
+                ) {
+
+                    const id =
+                        url.searchParams.get(
+                            "v"
+                        );
+
+                    if (
+                        id &&
+                        /^[a-zA-Z0-9_-]{11}$/.test(
+                            id
+                        )
+                    ) {
+
+                        return id;
+                    }
+
+                    const embedMatch =
+                        url.pathname.match(
+                            /^\/embed\/([a-zA-Z0-9_-]{11})/
+                        );
+
+                    if (embedMatch) {
+
+                        return embedMatch[1];
+                    }
+
+                    const shortsMatch =
+                        url.pathname.match(
+                            /^\/shorts\/([a-zA-Z0-9_-]{11})/
+                        );
+
+                    if (shortsMatch) {
+
+                        return shortsMatch[1];
+                    }
+                }
+
+                if (
+                    hostname ===
+                    "youtu.be"
+                ) {
+
+                    const id =
+                        url.pathname
+                            .slice(1)
+                            .split("/")[0];
+
+                    if (
+                        /^[a-zA-Z0-9_-]{11}$/.test(
+                            id
+                        )
+                    ) {
+
+                        return id;
+                    }
+                }
+
+            } catch {
+            }
+
+            return null;
+        }
+
+
+        /* =========================================================
+           載入 YouTube
+           ---------------------------------------------------------
+           controller 與 full 都支援。
+           ========================================================= */
+
+        function loadYouTubeVideo(
+            inputValue
+        ) {
+
+            if (
+                !youtubePlayer ||
+                !youtubeReady
+            ) {
+
+                return;
+            }
+
+            const videoId =
+                getYouTubeVideoId(
+                    inputValue
+                );
+
+            if (!videoId) {
+                return;
+            }
+
+            youtubeHasVideo =
+                false;
+
+            stopYouTubeSync();
+
+            youtubePlayer.cueVideoById(
+                videoId
+            );
+
+            if (youtubeVideoInfo) {
+
+                youtubeVideoInfo.textContent =
+                    videoId;
+            }
+
+            broadcast(
+                "youtube-load",
+                {
+                    videoId
+                }
+            );
+        }
+
+
+        /* =========================================================
+           Full 模式 YouTube
+           ========================================================= */
+
+        const youtubeInput =
+            document.getElementById(
+                "youtubeInput"
+            );
+
+        const youtubeLoadButton =
+            document.getElementById(
+                "youtubeLoadButton"
+            );
+
+
+        if (youtubeLoadButton) {
+
+            youtubeLoadButton.addEventListener(
+                "click",
+                () => {
+
+                    loadYouTubeVideo(
+                        youtubeInput.value
+                    );
+                }
+            );
+        }
+
+
+        if (youtubeInput) {
+
+            youtubeInput.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        youtubeLoadButton.click();
+                    }
+                }
+            );
+        }
+
+
+        /* =========================================================
+           Full 模式 YouTube 播放按鈕
+           ========================================================= */
+
+        const youtubePlayButton =
+            document.getElementById(
+                "youtubePlayButton"
+            );
+
+
+        if (youtubePlayButton) {
+
+            youtubePlayButton.addEventListener(
+                "click",
+                () => {
+
+                    if (
+                        !youtubePlayer ||
+                        !youtubeReady
+                    ) {
+
+                        return;
+                    }
+
+                    const state =
+                        youtubePlayer.getPlayerState();
+
+                    if (
+                        state ===
+                        YT.PlayerState.PLAYING
+                    ) {
+
+                        youtubePlayer.pauseVideo();
+
+                    } else {
+
+                        youtubePlayer.playVideo();
+                    }
+                }
+            );
+        }
+
+
+        /* =========================================================
+           Controller YouTube 載入
+           ========================================================= */
+
+        if (controllerYoutubeLoadButton) {
+
+            controllerYoutubeLoadButton.addEventListener(
+                "click",
+                () => {
+
+                    loadYouTubeVideo(
+                        controllerYoutubeInput.value
+                    );
+                }
+            );
+        }
+
+
+        if (controllerYoutubeInput) {
+
+            controllerYoutubeInput.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        controllerYoutubeLoadButton.click();
+                    }
+                }
+            );
+        }
+
+
+        /* =========================================================
+           Controller YouTube 播放
+           ========================================================= */
+
+        if (controllerYoutubePlayButton) {
+
+            controllerYoutubePlayButton.addEventListener(
+                "click",
+                () => {
+
+                    if (
+                        !youtubePlayer ||
+                        !youtubeReady ||
+                        !youtubeHasVideo
+                    ) {
+
+                        return;
+                    }
+
+                    const state =
+                        youtubePlayer.getPlayerState();
+
+                    if (
+                        state ===
+                        YT.PlayerState.PLAYING
+                    ) {
+
+                        youtubePlayer.pauseVideo();
+
+                    } else {
+
+                        youtubePlayer.playVideo();
+                    }
+                }
+            );
+        }
+
+
+        function updateControllerYouTubeButton() {
+
+            if (
+                !controllerYoutubePlayButton
+            ) {
+
+                return;
+            }
+
+            if (
+                youtubePlayer &&
+                youtubeReady &&
+                youtubeHasVideo
+            ) {
+
+                const state =
+                    youtubePlayer.getPlayerState();
+
+                controllerYoutubePlayButton.textContent =
+                    state ===
+                        YT.PlayerState.PLAYING
+                        ? "⏸"
+                        : "▶";
+
+            } else {
+
+                controllerYoutubePlayButton.textContent =
+                    "▶";
+            }
+        }
+
+
+        /* =========================================================
+           YouTube API 已經載入
+           ========================================================= */
+
+        if (
+            typeof YT !== "undefined" &&
+            typeof YT.Player !== "undefined"
+        ) {
+
+            createYouTubePlayer();
+        }
+
+
+        /* =========================================================
+           BroadcastChannel 接收
+           ========================================================= */
+
+        if (broadcastChannel) {
+
+            broadcastChannel.onmessage =
+                event => {
+
+                    const message =
+                        event.data;
+
+                    if (
+                        !message ||
+                        typeof message.type !==
+                        "string"
+                    ) {
+
+                        return;
+                    }
+
+                    setBroadcastStatus(
+                        true
+                    );
+
+                    switch (
+                    message.type
+                    ) {
+
+                        /* -----------------------------------------
+                           字幕
+                           ----------------------------------------- */
+
+                        case "lyrics-load":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.load(
+                                    message.lrcText,
+                                    false
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           時間
+                           ----------------------------------------- */
+
+                        case "time":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.setTime(
+                                    Number(
+                                        message.time
+                                    ),
+                                    false
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           播放
+                           ----------------------------------------- */
+
+                        case "play":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.play(
+                                    false
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           暫停
+                           ----------------------------------------- */
+
+                        case "pause":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.pause(
+                                    false
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           時間偏移
+                           ----------------------------------------- */
+
+                        case "offset":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.setOffset(
+                                    Number(
+                                        message.offset
+                                    ),
+                                    false
+                                );
+                            }
+
+                            break;
+
+                        /* -----------------------------------------
+                           字體
+                           ----------------------------------------- */
+
+                        case "font":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                const lyrics =
+                                    document.getElementById(
+                                        "lyrics"
+                                    );
+
+                                lyrics.style.fontFamily =
+                                    message.font;
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           文字顏色
+                           ----------------------------------------- */
+
+                        case "color":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                if (colorInput) {
+
+                                    colorInput.value =
+                                        message.color;
+                                }
+
+                                player.update();
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           底色
+                           ----------------------------------------- */
+
+                        case "background-color":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                if (
+                                    backgroundColorInput
+                                ) {
+
+                                    backgroundColorInput.value =
+                                        message.color;
+                                }
+
+                                player.update();
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           播放模式
+                           ----------------------------------------- */
+
+                        case "playback-mode":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                playbackMode =
+                                    message.mode;
+
+                                updatePlaybackModeUI();
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           YouTube
+                           ----------------------------------------- */
+
+                        case "youtube-load":
+
+                            /*
+                             * 字幕輸出端不載入 YouTube。
+                             */
+                            break;
+
+
+                        /* -----------------------------------------
+                           重置
+                           ----------------------------------------- */
+
+                        case "reset":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                player.pause(
+                                    false
+                                );
+
+                                player.setTime(
+                                    0,
+                                    false
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           控制器要求目前狀態
+                           ----------------------------------------- */
+
+                        case "request-state":
+
+                            if (
+                                pageMode !==
+                                "subtitle"
+                            ) {
+
+                                broadcast(
+                                    "state",
+                                    {
+                                        lrcText:
+                                            buildCurrentLRC(),
+
+                                        time:
+                                            player.currentTime,
+
+                                        offset:
+                                            player.offset,
+
+                                        color:
+                                            colorInput
+                                                ? colorInput.value
+                                                : "#7564a6",
+
+                                        backgroundColor:
+                                            backgroundColorInput
+                                                ? backgroundColorInput.value
+                                                : "#111111",
+
+                                        font:
+                                            fontSelect
+                                                ? fontSelect.value
+                                                : "Arial",
+
+                                        mode:
+                                            playbackMode,
+
+                                        playing:
+                                            player.playing
+                                    }
+                                );
+                            }
+
+                            break;
+
+
+                        /* -----------------------------------------
+                           回傳目前狀態
+                           ----------------------------------------- */
+
+                        case "state":
+
+                            if (
+                                pageMode ===
+                                "subtitle"
+                            ) {
+
+                                applyRemoteState(
+                                    message
+                                );
+                            }
+
+                            break;
+                    }
+                };
+
+            setBroadcastStatus(
+                false
+            );
+        }
+
+
+        /* =========================================================
+           建立目前 LRC
+           ========================================================= */
+
+        function buildCurrentLRC() {
+
+            if (!player.lyrics.length) {
+                return "";
+            }
+
+            return player.lyrics
+                .map(
+                    line =>
+                        `[${formatLRCTime(line.time)}]${line.text}`
+                )
+                .join("\n");
+        }
+
+
+        function formatLRCTime(
+            seconds
+        ) {
+
+            const minutes =
+                Math.floor(
+                    seconds / 60
+                );
+
+            const remaining =
+                seconds -
+                minutes * 60;
+
+            return (
+                `${String(
+                    minutes
+                ).padStart(2, "0")}:` +
+                `${remaining
+                    .toFixed(3)
+                    .padStart(6, "0")}`
+            );
+        }
+
+
+        /* =========================================================
+           套用遠端狀態
+           ========================================================= */
+
+        function applyRemoteState(
+            state
+        ) {
+
+            if (
+                state.lrcText
+            ) {
+
+                player.load(
+                    state.lrcText,
+                    false
+                );
+            }
+
+            if (
+                Number.isFinite(
+                    Number(
+                        state.offset
+                    )
+                )
+            ) {
+
+                player.setOffset(
+                    Number(
+                        state.offset
+                    ),
+                    false
+                );
+            }
+
+            if (
+                state.color &&
+                colorInput
+            ) {
+
+                colorInput.value =
+                    state.color;
+
+                player.update();
+            }
+
+            if (
+                state.backgroundColor
+            ) {
+
+                if (
+                    backgroundColorInput
+                ) {
+
+                    backgroundColorInput.value =
+                        state.backgroundColor;
+                }
+
+                player.update();
+            }
+
+            if (
+                state.font
+            ) {
+
+                document.getElementById(
+                    "lyrics"
+                ).style.fontFamily =
+                    state.font;
+
+                if (fontSelect) {
+
+                    fontSelect.value =
+                        state.font;
+                }
+            }
+
+            if (
+                state.mode
+            ) {
+
+                playbackMode =
+                    state.mode;
+
+                updatePlaybackModeUI();
+            }
+
+            if (
+                Number.isFinite(
+                    Number(
+                        state.time
+                    )
+                )
+            ) {
+
+                player.setTime(
+                    Number(
+                        state.time
+                    ),
+                    false
+                );
+            }
+
+            if (state.playing) {
+
+                player.play(
+                    false
+                );
+
+            } else {
+
+                player.pause(
+                    false
+                );
+            }
+        }
+
+
+        /* =========================================================
+           字幕模式啟動
+           ========================================================= */
+
+        if (
+            pageMode ===
+            "subtitle"
+        ) {
+
+            setTimeout(
+                () => {
+
+                    broadcast(
+                        "request-state"
+                    );
+
+                },
+                200
+            );
+        }
+
+
+        /* =========================================================
+           初始化
+           ========================================================= */
+
+        updatePlaybackModeUI();
+
+    </script>
+
+</body>
+
+</html>
