@@ -320,7 +320,6 @@ class LRCPlayer {
     getLineProgress(index) {
         const current = this.lyrics[index];
         const next = this.lyrics[index + 1];
-
         if (!current) {
             return 0;
         }
@@ -330,7 +329,6 @@ class LRCPlayer {
         }
 
         const duration = next.time - current.time;
-
         if (duration <= 0) {
             return 1;
         }
@@ -342,9 +340,7 @@ class LRCPlayer {
     updateLineStylesClassic(scrollPosition) {
         const colorInput = document.getElementById("colorInput");
         const color = colorInput ? colorInput.value : "#7564a6";
-
         const currentIndex = this.getCurrentIndex(this.currentTime);
-
         const backgroundColorInput = document.getElementById("backgroundColorInput");
         const baseColor = backgroundColorInput ? backgroundColorInput.value : "#111111";
 
@@ -395,7 +391,6 @@ class LRCPlayer {
         for (const ch of text) {
             const span = document.createElement("span");
             span.className = "smoke-char";
-            /* 空白用 nbsp 保留寬度 */
             span.textContent = ch === " " ? "\u00a0" : ch;
             base.appendChild(span);
             chars.push(span);
@@ -436,21 +431,21 @@ class LRCPlayer {
 
     animateSmokeTransition(prevIndex, nextIndex) {
         const A = window.anime;
-
         if (A && prevIndex >= 0 && prevIndex < this.slots.length) {
             const chars = this.ensureSmokeChars(prevIndex);
             const dissolvingLine = prevIndex;
             this.smokeDissolving = dissolvingLine;
+            this.slots[prevIndex].style.opacity = "1";
 
             A.animate(chars, {
-                translateY: () => -20 - Math.random() * 40,
-                translateX: () => (Math.random() - 0.5) * 40,
-                scale: () => 1 + Math.random() * 0.4,
-                rotate: () => (Math.random() - 0.5) * 30,
-                filter: ["blur(0px)", "blur(10px)"],
-                opacity: [1, 0],
-                duration: 900,
-                delay: A.stagger(35),
+                translateY: () => -25 - Math.random() * 35,
+                translateX: () => (Math.random() - 0.5) * 14,
+                scale: () => 1 + Math.random() * 0.12,
+                rotate: () => (Math.random() - 0.5) * 12,
+                filter: ["blur(0px)", "blur(2px)", "blur(8px)"],
+                opacity: [1, 0.85, 0.45, 0],
+                duration: 1500,
+                delay: A.stagger(45),
                 ease: "outQuad",
                 onComplete: () => {
                     if (this.smokeDissolving === dissolvingLine) {
@@ -502,7 +497,6 @@ class LRCPlayer {
     updateLineStylesVertical() {
         const colorInput = document.getElementById("colorInput");
         const color = colorInput ? colorInput.value : "#000000";
-
         const currentIndex = this.getCurrentIndex(this.currentTime);
 
         for (let i = 0; i < this.slots.length; i++) {
@@ -802,11 +796,9 @@ async function searchLyrics() {
     }
 }
 
-
 if (searchButton) {
     searchButton.addEventListener("click", searchLyrics);
 }
-
 
 if (songInput) {
     songInput.addEventListener("keydown", event => {
@@ -826,7 +818,6 @@ if (customLrcButton) {
         customLrcInput.click();
     });
 }
-
 
 if (customLrcInput) {
     customLrcInput.addEventListener("change", async event => {
@@ -982,7 +973,6 @@ function ensureGoogleFont(fontFamily) {
     document.head.appendChild(link);
 }
 
-
 if (fontSelect) {
     fontSelect.addEventListener("change", event => {
         const font = event.target.value;
@@ -999,9 +989,7 @@ const fontSizePlus = document.getElementById("fontSizePlus");
 
 function setFontSizeAdjust(value, shouldBroadcast = true) {
     const adjust = Math.max(-20, Math.min(40, Math.round(Number(value) || 0)));
-
     player.fontSizeAdjust = adjust;
-
     player.update();
 
     if (shouldBroadcast && pageMode !== "subtitle") {
@@ -1023,7 +1011,6 @@ if (fontSizePlus) {
 
 const colorInput = document.getElementById("colorInput");
 
-
 if (colorInput) {
     colorInput.addEventListener("input", () => {
         player.update();
@@ -1032,16 +1019,13 @@ if (colorInput) {
     });
 }
 
-
 const effectSelect = document.getElementById("effectSelect");
-
 
 if (effectSelect) {
     effectSelect.addEventListener("change", () => {
         player.effect = effectSelect.value;
         player.render();
         player.update();
-
         broadcast("effect", { effect: effectSelect.value });
     });
 }
@@ -1049,35 +1033,28 @@ if (effectSelect) {
 const offsetSlider = document.getElementById("offsetSlider");
 const offsetValue = document.getElementById("offsetValue");
 
-
 if (offsetSlider) {
     offsetSlider.addEventListener("input", event => {
         const value = Number(event.target.value);
-
         player.setOffset(value);
-
         offsetValue.textContent = `${value > 0 ? "+" : ""}${value.toFixed(1)}s`;
     });
 }
 
 const timeline = document.getElementById("timeline");
 const timelineThumb = document.getElementById("timelineThumb");
-
 let draggingTimeline = false;
-
 
 function updateTimeFromPointer(clientY) {
     if (!player.lyrics.length) {
         return;
     }
-
     const rect = timeline.getBoundingClientRect();
     const height = rect.height;
     const usableHeight = Math.max(1, height - 60);
     const y = Math.max(30, Math.min(height - 30, clientY - rect.top));
     const ratio = (y - 30) / usableHeight;
     const time = player.getDuration() * ratio;
-
     player.setTime(time);
 
     if (
@@ -1094,9 +1071,7 @@ function updateTimeFromPointer(clientY) {
 if (timelineThumb) {
     timelineThumb.addEventListener("pointerdown", event => {
         draggingTimeline = true;
-
         timelineThumb.setPointerCapture(event.pointerId);
-
         event.preventDefault();
     });
 
@@ -1104,32 +1079,25 @@ if (timelineThumb) {
         if (!draggingTimeline) {
             return;
         }
-
         updateTimeFromPointer(event.clientY);
     });
 
     timelineThumb.addEventListener("pointerup", event => {
         draggingTimeline = false;
-
         timelineThumb.releasePointerCapture?.(event.pointerId);
     });
 }
-
 
 if (timeline) {
     timeline.addEventListener("pointerdown", event => {
         if (event.target === timelineThumb) {
             return;
         }
-
         updateTimeFromPointer(event.clientY);
     });
 }
 
-
 const playButton = document.getElementById("playButton");
-
-
 if (playButton) {
     playButton.addEventListener("click", () => {
         if (playbackMode === "sync") {
@@ -1147,7 +1115,6 @@ if (playButton) {
 
                     youtubePlayer.playVideo();
                 }
-
                 return;
             }
 
@@ -1156,9 +1123,7 @@ if (playButton) {
             } else {
                 player.play();
             }
-
             updatePlayButton();
-
             return;
         }
 
@@ -1167,7 +1132,6 @@ if (playButton) {
         } else {
             player.play();
         }
-
         updatePlayButton();
     });
 }
@@ -1179,15 +1143,12 @@ function updatePlayButton() {
 
     if (playbackMode === "lyrics") {
         playButton.textContent = player.playing ? "⏸" : "▶";
-
         updateControllerYouTubeButton();
-
         return;
     }
 
     if (youtubePlayer && youtubeReady && youtubeHasVideo) {
         const state = youtubePlayer.getPlayerState();
-
         playButton.textContent = state === YT.PlayerState.PLAYING ? "⏸" : "▶";
     } else {
         playButton.textContent = player.playing ? "⏸" : "▶";
@@ -1196,14 +1157,11 @@ function updatePlayButton() {
     updateControllerYouTubeButton();
 }
 
-
 const resetButton = document.getElementById("resetButton");
-
 
 if (resetButton) {
     resetButton.addEventListener("click", () => {
         player.pause();
-
         player.setTime(0);
 
         if (
@@ -1216,27 +1174,20 @@ if (resetButton) {
         }
 
         updateYouTubeTime();
-
         updatePlayButton();
-
         broadcast("reset");
     });
 }
 
-
 const sidebar = document.getElementById("sidebar");
 const sidebarResizer = document.getElementById("sidebarResizer");
 const app = document.querySelector(".app");
-
 let resizingSidebar = false;
-
 
 if (sidebarResizer) {
     sidebarResizer.addEventListener("pointerdown", event => {
         resizingSidebar = true;
-
         sidebarResizer.setPointerCapture(event.pointerId);
-
         event.preventDefault();
     });
 
@@ -1304,7 +1255,6 @@ function createYouTubePlayer() {
     youtubePlayer = new YT.Player(target, {
         width: "100%",
         height: "100%",
-
         playerVars: {
             playsinline: 1,
             controls: 1,
@@ -1320,34 +1270,25 @@ function createYouTubePlayer() {
     });
 }
 
-
 window.onYouTubeIframeAPIReady = () => {
     createYouTubePlayer();
 };
 
-
 function onYouTubeReady() {
     youtubeReady = true;
-
     updatePlayButton();
 }
-
 
 function onYouTubeError(event) {
     console.error("YouTube Player Error:", event.data);
-
     youtubeHasVideo = false;
-
     stopYouTubeSync();
-
     updatePlayButton();
 }
-
 
 function onYouTubeStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING) {
         youtubeHasVideo = true;
-
         if (playbackMode === "sync") {
             startYouTubeSync();
         } else {
@@ -1355,94 +1296,72 @@ function onYouTubeStateChange(event) {
         }
 
         broadcast("youtube-state", { state: "playing" });
-
         updatePlayButton();
-
         return;
     }
 
     if (event.data === YT.PlayerState.PAUSED) {
         stopYouTubeSync();
-
         if (playbackMode === "sync") {
             player.pause();
         }
-
         broadcast("youtube-state", { state: "paused" });
-
         updatePlayButton();
-
         return;
     }
 
     if (event.data === YT.PlayerState.ENDED) {
         stopYouTubeSync();
-
         if (playbackMode === "sync") {
             player.pause();
         }
-
         broadcast("youtube-state", { state: "ended" });
-
         updatePlayButton();
-
         return;
     }
 
     if (event.data === YT.PlayerState.CUED) {
         youtubeHasVideo = true;
-
         updateYouTubeTime();
-
         if (playbackMode === "sync") {
             player.setTime(0);
         }
-
         updatePlayButton();
     }
 }
 
 function startYouTubeSync() {
     stopYouTubeSync();
-
     if (playbackMode !== "sync") {
         return;
     }
 
     youtubeSyncTimer = setInterval(syncYouTubeTime, 30);
-
     syncYouTubeTime();
 }
-
 
 function stopYouTubeSync() {
     if (youtubeSyncTimer) {
         clearInterval(youtubeSyncTimer);
-
         youtubeSyncTimer = null;
     }
 }
 
-
 function syncYouTubeTime() {
     if (playbackMode !== "sync") {
         stopYouTubeSync();
-
         return;
     }
 
     if (!youtubePlayer || !youtubeReady || !youtubeHasVideo) {
         return;
     }
-
     const currentTime = youtubePlayer.getCurrentTime();
 
     if (!Number.isFinite(currentTime)) {
         return;
     }
-
     player.setTime(currentTime);
-
     updateYouTubeTime();
 }
 
@@ -1450,7 +1369,6 @@ function updateYouTubeTime() {
     if (!youtubePlayer || !youtubeReady) {
         return;
     }
-
     const current = youtubePlayer.getCurrentTime();
     const duration = youtubePlayer.getDuration();
 
@@ -1459,7 +1377,6 @@ function updateYouTubeTime() {
     }
 
     const text = `${formatYouTubeTime(current)} / ${formatYouTubeTime(duration)}`;
-
     const element = document.getElementById("youtubeTime");
 
     if (element) {
@@ -1474,7 +1391,6 @@ function updateYouTubeTime() {
 
 function formatYouTubeTime(seconds) {
     seconds = Math.max(0, Math.floor(seconds));
-
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
 
@@ -1483,7 +1399,6 @@ function formatYouTubeTime(seconds) {
 
 function getYouTubeVideoId(value) {
     const input = value.trim();
-
     if (!input) {
         return null;
     }
@@ -1508,13 +1423,11 @@ function getYouTubeVideoId(value) {
             }
 
             const embedMatch = url.pathname.match(/^\/embed\/([a-zA-Z0-9_-]{11})/);
-
             if (embedMatch) {
                 return embedMatch[1];
             }
 
             const shortsMatch = url.pathname.match(/^\/shorts\/([a-zA-Z0-9_-]{11})/);
-
             if (shortsMatch) {
                 return shortsMatch[1];
             }
@@ -1522,7 +1435,6 @@ function getYouTubeVideoId(value) {
 
         if (hostname === "youtu.be") {
             const id = url.pathname.slice(1).split("/")[0];
-
             if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
                 return id;
             }
@@ -1555,13 +1467,11 @@ function loadYouTubeVideo(inputValue) {
 const youtubeInput = document.getElementById("youtubeInput");
 const youtubeLoadButton = document.getElementById("youtubeLoadButton");
 
-
 if (youtubeLoadButton) {
     youtubeLoadButton.addEventListener("click", () => {
         loadYouTubeVideo(youtubeInput.value);
     });
 }
-
 
 if (youtubeInput) {
     youtubeInput.addEventListener("keydown", event => {
@@ -1571,10 +1481,7 @@ if (youtubeInput) {
     });
 }
 
-
 const youtubePlayButton = document.getElementById("youtubePlayButton");
-
-
 if (youtubePlayButton) {
     youtubePlayButton.addEventListener("click", () => {
         if (!youtubePlayer || !youtubeReady) {
@@ -1582,7 +1489,6 @@ if (youtubePlayButton) {
         }
 
         const state = youtubePlayer.getPlayerState();
-
         if (state === YT.PlayerState.PLAYING) {
             youtubePlayer.pauseVideo();
         } else {
@@ -1597,7 +1503,6 @@ if (controllerYoutubeLoadButton) {
     });
 }
 
-
 if (controllerYoutubeInput) {
     controllerYoutubeInput.addEventListener("keydown", event => {
         if (event.key === "Enter") {
@@ -1606,7 +1511,6 @@ if (controllerYoutubeInput) {
     });
 }
 
-
 if (controllerYoutubePlayButton) {
     controllerYoutubePlayButton.addEventListener("click", () => {
         if (!youtubePlayer || !youtubeReady || !youtubeHasVideo) {
@@ -1614,7 +1518,6 @@ if (controllerYoutubePlayButton) {
         }
 
         const state = youtubePlayer.getPlayerState();
-
         if (state === YT.PlayerState.PLAYING) {
             youtubePlayer.pauseVideo();
         } else {
@@ -1631,23 +1534,19 @@ function updateControllerYouTubeButton() {
 
     if (youtubePlayer && youtubeReady && youtubeHasVideo) {
         const state = youtubePlayer.getPlayerState();
-
         controllerYoutubePlayButton.textContent = state === YT.PlayerState.PLAYING ? "⏸" : "▶";
     } else {
         controllerYoutubePlayButton.textContent = "▶";
     }
 }
 
-
 if (typeof YT !== "undefined" && typeof YT.Player !== "undefined") {
     createYouTubePlayer();
 }
 
-
 if (obs_ch) {
     obs_ch.onmessage = event => {
         const message = event.data;
-
         if (!message || typeof message.type !== "string") {
             return;
         }
@@ -1657,35 +1556,30 @@ if (obs_ch) {
                 if (pageMode === "subtitle") {
                     player.load(message.lrcText, false);
                 }
-
                 break;
 
             case "time":
                 if (pageMode === "subtitle") {
                     player.setTime(Number(message.time), false);
                 }
-
                 break;
 
             case "play":
                 if (pageMode === "subtitle") {
                     player.play(false);
                 }
-
                 break;
 
             case "pause":
                 if (pageMode === "subtitle") {
                     player.pause(false);
                 }
-
                 break;
 
             case "offset":
                 if (pageMode === "subtitle") {
                     player.setOffset(Number(message.offset), false);
                 }
-
                 break;
 
             case "font":
@@ -1709,7 +1603,6 @@ if (obs_ch) {
                     if (effectSelect) {
                         effectSelect.value = message.effect;
                     }
-
                     player.render();
                     player.update();
                 }
@@ -1731,7 +1624,6 @@ if (obs_ch) {
                     }
                     player.update();
                 }
-
                 break;
 
             case "playback-mode":
@@ -1740,7 +1632,6 @@ if (obs_ch) {
 
                     updatePlaybackModeUI();
                 }
-
                 break;
 
             case "youtube-load":
@@ -1751,7 +1642,6 @@ if (obs_ch) {
                     player.pause(false);
                     player.setTime(0, false);
                 }
-
                 break;
 
             case "request-state":
@@ -1792,7 +1682,6 @@ function buildCurrentLRC() {
         .map(line => `[${formatLRCTime(line.time)}]${line.text}`)
         .join("\n");
 }
-
 
 function formatLRCTime(seconds) {
     const minutes = Math.floor(seconds / 60);
