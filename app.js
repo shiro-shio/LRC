@@ -87,16 +87,13 @@ class LRCParser {
 
 class LRCLIB {
     static baseURL = "https://lrclib.net/api";
-
     static async get(trackName, artistName = "") {
         const params = new URLSearchParams({ track_name: trackName });
-
         if (artistName) {
             params.set("artist_name", artistName);
         }
 
         const response = await fetch(`${this.baseURL}/get?${params}`);
-
         if (!response.ok) {
             throw new Error(`/get HTTP ${response.status}`);
         }
@@ -105,9 +102,7 @@ class LRCLIB {
 
     static async search(query) {
         const params = new URLSearchParams({ q: query });
-
         const response = await fetch(`${this.baseURL}/search?${params}`);
-
         if (!response.ok) {
             throw new Error(`/search HTTP ${response.status}`);
         }
@@ -117,6 +112,14 @@ class LRCLIB {
 }
 
 
+function containsJapaneseText(text) {
+    const value = String(text || "");
+    return /[\u3040-\u30ff\u3400-\u4dbf]/.test(value) ||
+        /[\u3040-\u30ff]/.test(value) ||
+        /[\u30A0-\u30FF]/.test(value) ||
+        /[\u31F0-\u31FF]/.test(value);
+}
+
 class LRCPlayer {
     constructor() {
         this.lyrics = [];
@@ -125,17 +128,120 @@ class LRCPlayer {
         this.playing = false;
         this.animationFrame = null;
         this.lastFrame = 0;
-        this.lineHeight = 52;
+        this.lineHeight = 72;
         this.effect = "classic";
         this.fontSizeAdjust = 0;
         this.smokeIndex = -1;
         this.smokeDissolving = -1;
         this.smokeSplits = new Map();
         this.verticalIndex = -1;
+        this.kuroshiro = null;
+        this.kuroshiroReady = false;
+        this.kuroshiroInitPromise = null;
+        this.japaneseReadingCache = new Map();
+        this.pendingJapaneseReading = new Map();
         this.track = document.getElementById("lyricsTrack");
         this.emptyLyrics = document.getElementById("emptyLyrics");
         this.slots = [];
         this.render();
+    }
+
+    async initKuroshiro() {
+        if (this.kuroshiroReady) {
+            return;
+        }
+
+        if (this.kuroshiroInitPromise) {
+            return this.kuroshiroInitPromise;
+        }
+
+        const KuroshiroFactory = window.Kuroshiro?.default || window.Kuroshiro;
+        const AnalyzerFactory = window.KuromojiAnalyzer?.default || window.KuromojiAnalyzer;
+
+        if (!KuroshiroFactory || !AnalyzerFactory) {
+            console.warn("Kuroshiro/KuromojiAnalyzer 尚未載入，日文副歌詞功能暫停");
+            return;
+        }
+
+        this.kuroshiroInitPromise = (async () => {
+            try {
+                this.kuroshiro = new KuroshiroFactory();
+                await this.kuroshiro.init(new AnalyzerFactory({
+                    dictPath: "https://cdn.jsdelivr.net/npm/kuromoji/dict/"
+                }));
+                this.kuroshiroReady = true;
+            } catch (error) {
+                console.warn("Kuroshiro 初始化失敗：", error);
+                this.kuroshiro = null;
+                this.kuroshiroReady = false;
+                throw error;
+            } finally {
+                if (!this.kuroshiroReady) {
+                    this.kuroshiroInitPromise = null;
+                }
+            }
+        })();
+
+        return this.kuroshiroInitPromise;
+    }
+
+    async getJapaneseReading(text) {
+        const normalizedText = String(text || "").trim();
+        if (!containsJapaneseText(normalizedText)) {
+            return "";
+        }
+
+        if (this.japaneseReadingCache.has(normalizedText)) {
+            return this.japaneseReadingCache.get(normalizedText);
+        }
+
+        if (this.pendingJapaneseReading.has(normalizedText)) {
+            return this.pendingJapaneseReading.get(normalizedText);
+        }
+
+        const promise = (async () => {
+            await this.initKuroshiro();
+
+            if (!this.kuroshiro) {
+                return "";
+            }
+
+            try {
+                const reading = await this.kuroshiro.convert(normalizedText, {
+                    to: "romaji",
+                    mode: "spaced"
+                });
+                const clean = String(reading).replace(/\s+/g, " ").trim();
+                this.japaneseReadingCache.set(normalizedText, clean);
+                return clean;
+            } catch (error) {
+                console.warn("Kuroshiro 轉換失敗：", error);
+                return "";
+            }
+        })();
+
+        this.pendingJapaneseReading.set(normalizedText, promise);
+        try {
+            return await promise;
+        } finally {
+            this.pendingJapaneseReading.delete(normalizedText);
+        }
+    }
+
+    renderJapaneseSubLyric(target, text) {
+        if (!target || !containsJapaneseText(text)) {
+            return;
+        }
+
+        target.textContent = "...";
+
+        this.getJapaneseReading(text).then(reading => {
+            if (!target.isConnected) {
+                return;
+            }
+
+            target.textContent = reading || "";
+        });
     }
 
     load(lrcText, shouldBroadcast = true) {
@@ -159,7 +265,6 @@ class LRCPlayer {
         this.smokeSplits = new Map();
         this.smokeIndex = -1;
         this.verticalIndex = -1;
-
         this.track.innerHTML = "";
         this.slots = [];
         if (!this.lyrics.length) {
@@ -175,8 +280,10 @@ class LRCPlayer {
 
         for (let i = 0; i < this.lyrics.length; i++) {
             const element = document.createElement("div");
-            element.className = "lyric-line";
             const text = this.lyrics[i].text;
+            const hasJapaneseText = containsJapaneseText(text);
+            const showSubLyric = hasJapaneseText;
+            element.className = `lyric-line${showSubLyric ? " has-sub-lyric" : ""}`;
             element.innerHTML = `
                 <span class="lyric-text">
                     <span class="lyric-base">
@@ -185,8 +292,14 @@ class LRCPlayer {
                     <span class="lyric-fill">
                         ${escapeHTML(text)}
                     </span>
+                    ${showSubLyric ? '<span class="lyric-sub" aria-live="polite"></span>' : ""}
                 </span>
             `;
+
+            if (showSubLyric) {
+                const sub = element.querySelector(".lyric-sub");
+                this.renderJapaneseSubLyric(sub, text);
+            }
 
             element.style.top = `${i * this.lineHeight}px`;
             this.track.appendChild(element);
@@ -200,11 +313,8 @@ class LRCPlayer {
         if (!this.lyrics.length) {
             return;
         }
-
         const duration = this.getDuration();
-
         this.currentTime = Math.max(0, Math.min(duration, Number(time) || 0));
-
         this.update();
 
         if (
@@ -351,6 +461,7 @@ class LRCPlayer {
             const opacity = Math.max(0.08, 1 - distance * 0.16);
             const blur = Math.min(3, distance * 0.45);
             const isCurrent = i === currentIndex;
+            const sub = element.querySelector(".lyric-sub");
 
             element.classList.remove("smoke-line");
             element.style.transform = "";
@@ -362,17 +473,27 @@ class LRCPlayer {
             const fill = element.querySelector(".lyric-fill");
 
             if (isCurrent) {
-                element.style.fontSize = `${30 + this.fontSizeAdjust}px`;
+                const mainFontSize = 30 + this.fontSizeAdjust;
+                const subFontSize = 12 + this.fontSizeAdjust;
+                element.style.fontSize = `${mainFontSize}px`;
                 element.style.fontWeight = "700";
                 base.style.color = baseColor;
                 fill.style.color = color;
+                if (sub) {
+                    sub.style.fontSize = `${Math.max(10, subFontSize)}px`;
+                }
 
                 fill.style.width = `${this.getLineProgress(currentIndex) * 100}%`;
             } else {
-                element.style.fontSize = `${21 + this.fontSizeAdjust}px`;
+                const mainFontSize = 21 + this.fontSizeAdjust;
+                const subFontSize = 11 + this.fontSizeAdjust;
+                element.style.fontSize = `${mainFontSize}px`;
                 element.style.fontWeight = "400";
                 fill.style.width = "0%";
                 base.style.color = baseColor;
+                if (sub) {
+                    sub.style.fontSize = `${Math.max(10, subFontSize)}px`;
+                }
             }
         }
     }
@@ -503,16 +624,22 @@ class LRCPlayer {
             const element = this.slots[i];
             const base = element.querySelector(".lyric-base");
             const fill = element.querySelector(".lyric-fill");
+            const sub = element.querySelector(".lyric-sub");
 
             fill.style.width = "0%";
             base.style.color = color;
 
+            const mainFontSize = 40 + this.fontSizeAdjust;
+            const subFontSize = 11 + this.fontSizeAdjust;
             element.classList.add("vertical-line");
             element.classList.remove("smoke-line");
             element.style.setProperty("--smoke-blur", "0px");
-            element.style.fontSize = `${40 + this.fontSizeAdjust}px`;
+            element.style.fontSize = `${mainFontSize}px`;
             element.style.fontWeight = "";
             element.style.top = "";
+            if (sub) {
+                sub.style.fontSize = `${Math.max(10, subFontSize)}px`;
+            }
 
             const side = i % 2 === 0 ? "right" : "left";
             element.classList.toggle("vertical-right", side === "right");
@@ -584,8 +711,8 @@ class LRCPlayer {
         const A = window.anime;
         const element = this.slots[index];
         const chars = this.ensureVerticalChars(index);
-        const jitterX = (Math.random() - 0.5) * 70;
-        const jitterY = (Math.random() - 0.5) * 110;
+        const jitterX = Math.max(-18, Math.min(18, (Math.random() - 0.5) * 36));
+        const jitterY = Math.max(-12, Math.min(12, (Math.random() - 0.5) * 24));
 
         element.style.opacity = "1";
         element.style.transform = `translate(${jitterX}px, ${jitterY}px)`;
