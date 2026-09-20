@@ -167,7 +167,7 @@ class LRCPlayer {
             try {
                 this.kuroshiro = new KuroshiroFactory();
                 await this.kuroshiro.init(new AnalyzerFactory({
-                    dictPath: "https://cdn.jsdelivr.net/npm/kuromoji/dict/"
+                    dictPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/"
                 }));
                 this.kuroshiroReady = true;
             } catch (error) {
